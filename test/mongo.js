@@ -5,12 +5,10 @@ const chai = require('chai');
 chai.use(require('chai-as-promised'));
 const expect = chai.expect;
 
-const config = require('../test.config.js');
-
 describe.only('Mongo Module', function () {
     // this.timeout(4000);
 
-    const { Mongo, DataType } = require(`../${config.sourceFolder}/mongo`);
+    const { Mongo, DataType } = require(`../dist/mongo`);
     const { MongoClient, ObjectID } = require('mongodb');
 
     let model;
@@ -293,12 +291,12 @@ describe.only('Mongo Module', function () {
             }
         ];
 
-        MongoClient.connect(config.mongo.url, async (error, client) => {
+        MongoClient.connect(process.env.MONGO_URL, async (error, client) => {
             if (error) {
                 throw error;
             }
 
-            db = client.db(config.mongo.dbName);
+            db = client.db(process.env.MONGO_DB_NAME);
 
             const collection1 = db.collection(
                 Model1.getCollectionName()
@@ -345,35 +343,40 @@ describe.only('Mongo Module', function () {
         // await model.disconnect();
     });
 
-    describe.skip('deprecated tests', () => {
-        /*
+    describe('native mongo operations', () => {
+
+        it('should find all', async () => {
+            const result = await model.find();
+            expect(await result).to.deep.equal(model1Documents);
+        });
+
         it('should do basic filtering', async () => {
             const result = await model.find({
-                filters: {
-                    number: 11
-                }
+                number: 11
             });
             expect(result).to.deep.equal(model1Documents.filter((row) => row.number === 11));
         });
 
         it('should select and deselect fields', async () => {
-            const result = await model.find({
-                filters: {
+            const result = await model.find(
+                {
                     _id: model1Documents[0]._id
                 },
-                fields: {
-                    enum: 1,
-                    string: 1
+                {
+                    projection: {
+                        enum: 1,
+                        string: 1
+                    }
                 }
-            });
+            );
             expect(result).to.deep.equal(
                 model1Documents
                     .filter((row) => row._id.toHexString() === model1Documents[0]._id.toHexString())
-                    .map((row) => ({ enum: row.enum, string: row.string }))
+                    .map((row) => ({ _id: row._id, enum: row.enum, string: row.string }))
             );
 
-            const result2 = await model.find({
-                fields: {
+            const result2 = await model.find({}, {
+                projection: {
                     object: 0,
                     stringArray: 0,
                     objectArray: 0
@@ -382,6 +385,7 @@ describe.only('Mongo Module', function () {
             expect(result2).to.deep.equal(
                 model1Documents
                     .map((row) => {
+                        row = Object.assign({}, row);
                         delete row.object;
                         delete row.stringArray;
                         delete row.objectArray;
@@ -390,46 +394,15 @@ describe.only('Mongo Module', function () {
             );
         });
 
-        it('should sort limit skip and count', async () => {
-            const result = await model.find({
-                sort: {
-                    number: -1
-                },
-                limit: 2,
-                skip: 1,
-                count: true
-            });
-
-            const documents = model1Documents.slice();
-
-            documents.sort((a, b) => {
-                return b.number - a.number;
-            });
-
-            expect(result).to.deep.equal(
-                documents.slice(1)
-            );
-
-            expect(result.count()).to.equal(model1Documents.length);
-        });
-
-        it('should filter ObjectIds by string', async () => {
-            const result = await model.find({
-                filters: {
-                    _id: model1Documents[0]._id.toHexString(),
-                    // model2Dbref: model1Documents[0].model2DbRef.toHexString()
-                }
-            });
-            expect(result).to.deep.equal([model1Documents[0]]);
-        });
-
-    */
     });
 
     describe('find', () => {
-        it('should find all', async () => {
-            const result = await model.find();
-            expect(await result).to.deep.equal(model1Documents);
+
+        it('should filter ObjectIds by string', async () => {
+            const result = await model.find({
+                _id: model1Documents[0]._id.toHexString()
+            });
+            expect(result).to.deep.equal([model1Documents[0]]);
         });
 
         it('should select object id fields', async () => {
@@ -524,7 +497,7 @@ describe.only('Mongo Module', function () {
                         }).map((row) => ({ _id: row._id, enum: row.enum })).pop()
                     })).pop(),
                     objectArray: row.objectArray.map((item) => {
-                        return Object.assign(item, {
+                        return Object.assign({}, item, {
                             model3DbRef: model3Documents.filter((model3Row) => {
                                 return model3Row._id.toHexString() === item.model3DbRef.toHexString();
                             }).map((row) => ({ _id: row._id, enum: row.enum })).pop()
@@ -541,7 +514,7 @@ describe.only('Mongo Module', function () {
             expect(result).to.deep.equal(model2Documents);
         });
 
-        it('should attach dbRefs to cursor', async () => {
+        it('should attach object id to cursor', async () => {
             const result = await model.find({}, {
                 join: [
                     {
@@ -592,7 +565,9 @@ describe.only('Mongo Module', function () {
                 return m2row.number === 2345;
             });
 
-            const docs = model1Documents.filter((row) => {
+            const docs = model1Documents.map((row) => {
+                return Object.assign({}, row);
+            }).filter((row) => {
                 const m2row = model2Data.find((m2row) => {
                     return m2row._id.toHexString() === row.model2DbRef.toHexString();
                 });
@@ -606,7 +581,7 @@ describe.only('Mongo Module', function () {
             expect(result).to.deep.equal(docs);
         });
 
-        it.only('should filter resursive object id referenced fields when there are multiple matches', async () => {
+        it('should filter resursive object id referenced fields when there are multiple matches', async () => {
             const result = await model.find({}, {
                 join: [
                     {
@@ -633,100 +608,162 @@ describe.only('Mongo Module', function () {
                 return row.m4str === 's1';
             });
 
-            const model2Data = model2Documents.filter((m2row) => {
-                m2row.model3Ref = model3Documents.find((m3row) => {
-                    return m3row._id.toHexString() === m2row.model3Ref.toHexString();
+            const model2Data = model2Documents
+                .map((row) => Object.assign({}, row))
+                .filter((m2row) => {
+                    m2row.model3Ref = model3Documents.find((m3row) => {
+                        return m3row._id.toHexString() === m2row.model3Ref.toHexString();
+                    });
+                    m2row.model4Ref = model4Data.find((m4row) => {
+                        return m4row._id.toHexString() === m2row.model4Ref.toHexString();
+                    });
+                    return m2row.model4Ref;
+                }).map((m2row) => {
+                    return {
+                        _id: m2row._id,
+                        model3Ref: m2row.model3Ref
+                    };
                 });
-                m2row.model4Ref = model4Data.find((m4row) => {
-                    return m4row._id.toHexString() === m2row.model4Ref.toHexString();
+
+            const docs = model1Documents
+                .map((row) => {
+                    return Object.assign({}, row);
+                }).filter((m1row) => {
+                    const m2row = model2Data.find((m2row) => {
+                        return m2row._id.toHexString() === m1row.model2DbRef.toHexString();
+                    });
+                    if (m2row) {
+                        m1row.model2DbRef = m2row;
+                        return true;
+                    }
+                    return false;
                 });
-                return m2row.model4Ref;
-            }).map((m2row) => {
+
+            expect(result).to.deep.equal(docs);
+        });
+
+        it('should filter object id references in array', async () => {
+            const result = await model.find({}, {
+                join: [
+                    {
+                        on: 'model2DbRef',
+                        projection: {
+                            model3Ref: 1
+                        }
+                    },
+                    {
+                        on: 'objectArray.model3DbRef',
+                        filters: {
+                            boolean: false
+                        }
+                    }
+                ]
+            });
+
+            const model3Data = model3Documents.filter((row) => {
+                return row.boolean === false;
+            });
+
+            const model2Data = model2Documents.map((m2row) => {
                 return {
                     _id: m2row._id,
                     model3Ref: m2row.model3Ref
                 };
             });
 
-            const docs = model1Documents.filter((m1row) => {
-                const m2row = model2Data.find((m2row) => {
+            const docs = model1Documents.map((row) => Object.assign({}, row)).filter((m1row) => {
+                m1row.model2DbRef = model2Data.find((m2row) => {
                     return m2row._id.toHexString() === m1row.model2DbRef.toHexString();
                 });
-                if (m2row) {
-                    m1row.model2DbRef = m2row;
-                    return true;
-                }
-                return false;
+
+                let found = false;
+                m1row.objectArray = m1row.objectArray.map((item) => {
+                    const refData = model3Data.find((m3row) => {
+                        return item.model3DbRef.toHexString() === m3row._id.toHexString();
+                    });
+
+                    if (refData) {
+                        found = true;
+                        // item.model3DbRef = model3Data.find((m3row) => {
+                        //     return item.model3DbRef.toHexString() === m3row._id.toHexString();
+                        // });
+                        return Object.assign({}, item, {
+                            model3DbRef: refData
+                        });
+                    }
+
+                    // item.model3DbRef = { _id: item.model3DbRef };
+                    return Object.assign({}, item, {
+                        model3DbRef: { _id: item.model3DbRef }
+                    });
+                });
+
+                return found;
             });
 
             expect(result).to.deep.equal(docs);
         });
 
-        it('should filter object id references in array', async () => {
-            // const result = await model.find({}, {
-            //     join: [
-            //         {
-            //             on: 'model2DbRef',
-            //             fields: {
-            //                 model3Ref: 1
-            //             }
-            //         },
-            //         {
-            //             on: 'objectArray.model4',
-            //             filters: {
-            //                 boolean: false
-            //             }
-            //         }
-            //     ]
-            // });
+        it('should attach object id data when foreign collections projection is not defined', async () => {
+            const result = await model.find({}, {
+                join: [
+                    {
+                        on: 'model2DbRef'
+                    }
+                ]
+            });
 
+            const docs = model1Documents.map((m1row) => {
+                return Object.assign({}, m1row, {
+                    model2DbRef: model2Documents.find((m2row) => {
+                        return m2row._id.toHexString() === m1row.model2DbRef.toHexString();
+                    })
+                });
+            });
+
+            expect(result).to.deep.equal(docs);
         });
 
-        it('should attach object id data when foreign collections fields are not defined');
+        it('should filter object id reference and join another object id in reference without filters', async () => {
+            const result = await model.find({}, {
+                join: [
+                    {
+                        on: ['model2DbRef'],
+                        filters: {
+                            number: {
+                                $gt: 1234
+                            }
+                        },
+                        join: [
+                            {
+                                on: 'model3Ref'
+                            }
+                        ]
+                    }
+                ]
+            });
 
-/*
-const j = [
-    {
-        on: ['model2Ref'],
-        projection: {
-            model3Ref: 1
-        },
-        join: [
-            {
-                on: 'xy.z',
-                filters: {
-                    boolean: true
-                }
-            }
-        ]
-    },
-    {
-        on: 'model4Ref',
-        filters: {
-            m4str: 's1'
-        },
-        join: {
-            model6: {}
-        }
-    },
-    {
-        on: 'model5Ref',
-        join: {
-            model6: {}
-        }
-    },
-    {
-        on: 'model3Ref',
-        filters: {
-            m4str: 's1'
-        }
-    }
-];
- */
+            const model2Data = model2Documents.filter((m2row) => {
+                return m2row.number > 1234;
+            }).map((m2row) => {
+                return Object.assign({}, m2row, {
+                    model3Ref: model3Documents.find((m3row) => {
+                        return m2row.model3Ref.toHexString() === m3row._id.toHexString();
+                    })
+                });
+            });
 
-        it('should not cause object id infinite loops');
+            const docs = model1Documents.map((row) => Object.assign({}, row)).filter((m1row) => {
+                return m1row.model2DbRef = model2Data.find((m2row) => {
+                    return m2row._id.toHexString() === m1row.model2DbRef.toHexString();
+                });
+            });
 
+            expect(result).to.deep.equal(docs);
+        });
 
+        it('should query the main collection first if the "limit" option is specified');
+        // it('should not cause object id infinite loops');
         // it('should call getter functions?');
     });
 

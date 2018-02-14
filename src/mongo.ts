@@ -77,41 +77,17 @@ export interface IObjectIdInData {
     // };
 }
 
-// join.data indexed by collection and field
-// export interface IJoinCollectionData {
-//     [collection: string]: {
-//         [field: string]: {
-//             [id: string]: IResult
-//         }
-//     };
-// }
-
-// all object id fields found in field config
-// export interface IObjectIdFields {
-//     [index: string]: any;
-// }
-
 // mongo query object
 export interface IQuery {
     [index: string]: any;
 }
-
-// data found in referenced collections
-// export interface IFilteredObjectIdData {
-//     [index: string]: any[];
-// }
-
-// model mapping for collections in join
-// export interface ICollectionModel {
-//     [index: string]: typeof Mongo;
-// }
 
 export interface IFindOptions extends FindOneOptions {
     join?: IJoin[];
     cursor?: boolean;
 }
 
-export interface IConfig {
+export interface IOptions {
     db: Db;
 }
 
@@ -129,7 +105,7 @@ export class Mongo {
     private _collection: Collection;
     private _db: Db;
 
-    constructor (options: IConfig) {
+    constructor (options: IOptions) {
         this._db = options.db;
         this._schema = (this.constructor as typeof Mongo).getSchema();
         this._collection = this._db.collection((this.constructor as typeof Mongo).getCollectionName());
@@ -347,32 +323,14 @@ export class Mongo {
                                 if (!objectIdInData[fieldPath]) {
                                     objectIdInData[fieldPath] = [];
                                 }
-                                // data.oid = DbRef type in mongo
-                                // const id = data.constructor.name === 'ObjectID' ? data : data.oid;
-                                // if (!objectIdInData[fieldPath][id]) {
-                                //     objectIdInData[fieldPath][id] = [];
-                                // }
 
                                 // clear object id data, if refereced data is not found,
                                 // the result will be { _id: ObjectId(...) } instead of the origin ObjectID or DBRef
                                 (referencePointer.parent as any)[referencePointer.field] = {
+                                    // data.oid = DbRef type in mongo
                                     _id: data.constructor.name === 'ObjectID' ? data : data.oid
                                 };
                                 objectIdInData[fieldPath].push(referencePointer);
-
-                                // if (!objectIdInData[collection]) {
-                                //     objectIdInData[collection] = {
-                                //         model: fieldConfig.model,
-                                //         dbRefsById: {}
-                                //     };
-                                // }
-
-                                // // data.oid = DbRef type in mongo
-                                // const id = data.constructor.name === 'ObjectID' ? data : data.oid;
-                                // if (!objectIdInData[collection].dbRefsById[id]) {
-                                //     objectIdInData[collection].dbRefsById[id] = [];
-                                // }
-                                // objectIdInData[collection].dbRefsById[id].push(referencePointer);
                             }
                         }
                         break;
