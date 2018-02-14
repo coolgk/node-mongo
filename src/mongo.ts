@@ -3,13 +3,14 @@ import { toArray } from '@coolgk/array';
 
 // model field data types
 export enum DataType {
-    STRING = 'string',
-    NUMBER = 'number',
-    OBJECT = 'object',
-    ENUM = 'enum',
-    BOOLEAN = 'boolean',
-    DATE = 'date',
-    OBJECTID = 'objectid'
+    String = 'string',
+    Number = 'number',
+    Document = 'document',
+    Enum = 'enum',
+    Boolean = 'boolean',
+    Date = 'date',
+    ObjectId = 'objectid',
+    ObjectID = 'objectid'
 }
 
 // model data schema
@@ -143,6 +144,10 @@ export class Mongo {
         return this._collection;
     }
 
+    // public async save (): Promise<{}> {
+
+    // }
+
     /* tslint:disable */
     /**
      * see parameter description for query and options in http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find
@@ -180,7 +185,7 @@ export class Mongo {
                         row,
                         joins,
                         {
-                            type: DataType.OBJECT,
+                            type: DataType.Document,
                             schema: this._schema
                         }
                     );
@@ -192,7 +197,7 @@ export class Mongo {
                 data,
                 joins,
                 {
-                    type: DataType.OBJECT,
+                    type: DataType.Document,
                     schema: this._schema,
                     array: data.constructor.name === 'Array'
                 }
@@ -283,7 +288,7 @@ export class Mongo {
                     }).toArray(),
                     join.join,
                     {
-                        type: DataType.OBJECT,
+                        type: DataType.Document,
                         schema: joinModel.getSchema(),
                         array: true
                     },
@@ -346,7 +351,7 @@ export class Mongo {
                 });
             } else {
                 switch (fieldSchema.type) {
-                    case DataType.OBJECT:
+                    case DataType.Document:
                         if (!fieldSchema.schema) {
                             throw new Error(
                                 `Undefined "schema" property on "${fieldSchema.type}" type in ${JSON.stringify(fieldSchema)}`
@@ -366,7 +371,7 @@ export class Mongo {
                             );
                         }
                         break;
-                    case DataType.OBJECTID:
+                    case DataType.ObjectId:
                         if (data && referencePointer) {
                             if (!fieldSchema.model) {
                                 throw new Error(
@@ -498,7 +503,6 @@ export class Mongo {
             + `Schema: ${JSON.stringify(model.getSchema())}\n`
         );
     }
-
 }
 
 export default Mongo;

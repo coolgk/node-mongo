@@ -33,53 +33,53 @@ describe.only('Mongo Module', function () {
             static getSchema () {
                 return {
                     string: {
-                        type: 'string',
+                        type: DataType.String,
                         default: 'xyz',
                         setter: (value) => {
                             return value + '-setter';
                         }
                     },
                     number: {
-                        type: 'number'
+                        type: DataType.Number
                     },
                     boolean: {
-                        type: 'boolean'
+                        type: DataType.Boolean
                     },
                     date: {
-                        type: 'date'
+                        type: DataType.Date
                     },
                     model2DbRef: {
-                        type: DataType.OBJECTID,
+                        type: DataType.ObjectID,
                         model: Model2
                     },
                     enum: {
-                        type: 'enum',
+                        type: DataType.Enum,
                         enum: ['abc', 'xyz']
                     },
                     object: {
-                        type: 'object',
-                        object: {
+                        type: DataType.Document,
+                        schema: {
                             string: {
-                                type: 'string'
+                                type: DataType.String
                             },
                             number: {
-                                type: 'number'
+                                type: DataType.Number
                             }
                         }
                     },
                     stringArray: {
-                        type: 'string',
+                        type: DataType.String,
                         array: true
                     },
                     objectArray: {
-                        type: 'object',
+                        type: DataType.Document,
                         array: true,
-                        object: {
+                        schema: {
                             date: {
-                                type: 'date'
+                                type: DataType.Date
                             },
                             model3DbRef: {
-                                type: DataType.OBJECTID,
+                                type: DataType.ObjectID,
                                 model: Model3
                             }
                         }
@@ -96,17 +96,17 @@ describe.only('Mongo Module', function () {
             static getSchema () {
                 return {
                     model3Ref: {
-                        type: DataType.OBJECTID,
+                        type: DataType.ObjectID,
                         model: Model3
                     },
                     string: {
-                        type: 'string'
+                        type: DataType.String
                     },
                     number: {
-                        type: 'number'
+                        type: DataType.Number
                     },
                     model4Ref: {
-                        type: DataType.OBJECTID,
+                        type: DataType.ObjectID,
                         model: Model4
                     }
                 };
@@ -121,12 +121,12 @@ describe.only('Mongo Module', function () {
             static getSchema () {
                 return {
                     enum: {
-                        type: 'enum',
+                        type: DataType.Enum,
                         array: true,
                         enum: ['aaa', 222, false]
                     },
                     boolean: {
-                        type: 'boolean'
+                        type: DataType.Boolean
                     }
                 };
             }
@@ -139,7 +139,7 @@ describe.only('Mongo Module', function () {
         class M4 extends Mongo {
             static getSchema () {
                 return {
-                    m4str: DataType.STRING
+                    m4str: DataType.String
                 };
             }
             static getCollectionName () {
@@ -460,6 +460,7 @@ describe.only('Mongo Module', function () {
 
             expect(result).to.deep.equal(documents);
 
+            // join array
             const result2 = await model.find({}, {
                 join: [
                     {
@@ -766,11 +767,64 @@ describe.only('Mongo Module', function () {
     });
 
     describe('save & update', () => {
+        beforeEach(() => {
+            class M5 extends Mongo {
+                static getSchema () {
+                    return {
+                        stringArray: {
+                            type: DataType.String,
+                            array: true
+                        },
+                        enumArray: {
+                            type: DataType.Enum,
+                            array: true,
+                            enum: ['a', 'b', 1]
+                        },
+                        number: {
+                            type: DataType.Number
+                        },
+                        boolean: {
+                            type: DataType.Boolean
+                        },
+                        date: {
+                            type: DataType.Date
+                        },
+                        objectid: {
+                            type: DataType.ObjectID
+                        },
+                        doc: {
+                            type: DataType.Document
+                        }
+                    };
+                }
+                static getCollectionName () {
+                    return 'M5Collection';
+                }
+            }
+        });
 
+        it('should validate data based on type');
+
+        it('should use setter() function to set data');
+
+        it('should add dateModified value on documents', async () => {
+            // const newDoc = {
+
+            // };
+            // model.save();
+        });
+
+        it('should add _id and dataModified on all documents in arrays');
+
+        it('should add, remove, set and add+remove scalar values in array');
+
+        it('should add, remove, set and add+remove documents in array and set correct dateModified values');
+
+        it('should update selected documents in array and set correct dateModified values');
     });
 
     describe('general functions', () => {
-        it('should be able to use call mongodb native functions');
+
     });
 
 });
