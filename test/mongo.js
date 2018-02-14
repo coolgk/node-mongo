@@ -6,7 +6,7 @@ chai.use(require('chai-as-promised'));
 const expect = chai.expect;
 
 describe.only('Mongo Module', function () {
-    // this.timeout(4000);
+    this.timeout(5000);
 
     const { Mongo, DataType } = require(`../dist/mongo`);
     const { MongoClient, ObjectID } = require('mongodb');

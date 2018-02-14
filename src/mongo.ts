@@ -35,16 +35,6 @@ export interface IResult {
 
 // query join definition
 export interface IJoin {
-    // [index: string]: {
-    //     fields?: {
-    //         [index: string]: 1 | 0
-    //     },
-    //     filters?: {
-    //         [index: string]: any
-    //     },
-    //     join?: IJoin,
-    //     data?: IResult[]
-    // };
     on: string | string[];
     projection?: {
         [field: string]: 1 | 0
@@ -60,21 +50,11 @@ export interface IReferencePointer {
     parent: IResult | IResult[];
     field: string | number;
     path: string[];
-    // id?: ObjectID;
 }
 
 // object id fields in search result
 export interface IObjectIdInData {
-    // [collection: string]: {
-    //     model: typeof Mongo;
-    //     dbRefsById: {
-    //         [id: string]: IReferencePointer[]
-    //     }
-    // };
     [field: string]: IReferencePointer[];
-    // {
-    //     [id: string]: IReferencePointer[]
-    // };
 }
 
 // mongo query object
