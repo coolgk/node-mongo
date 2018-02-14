@@ -340,7 +340,6 @@ describe.only('Mongo Module', function () {
     after(async () => {
         await db.dropDatabase();
         await mongoClient.close();
-        // await model.disconnect();
     });
 
     describe('native mongo operations', () => {
@@ -762,7 +761,6 @@ describe.only('Mongo Module', function () {
             expect(result).to.deep.equal(docs);
         });
 
-        it('should query the main collection first if the "limit" option is specified');
         // it('should not cause object id infinite loops');
         // it('should call getter functions?');
     });

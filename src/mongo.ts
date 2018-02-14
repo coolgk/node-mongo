@@ -12,20 +12,20 @@ export enum DataType {
     OBJECTID = 'objectid'
 }
 
-// model field definition
-export interface IFieldSchema {
+// model data schema
+export interface IDataSchema {
     type: DataType;
     setter?: (value: any) => any;
     enum?: (string | number | boolean)[];
     default?: any;
     model?: typeof Mongo;
-    object?: ISchema;
+    schema?: ISchema;
     array?: boolean;
 }
 
-// model fields
+// model schema
 export interface ISchema {
-    [field: string]: IFieldSchema;
+    [field: string]: IDataSchema;
 }
 
 // query result
@@ -45,19 +45,19 @@ export interface IJoin {
     model?: typeof Mongo;
 }
 
-// reference pointer type for find ref in data
+// reference pointer to object id values found in a query result
 export interface IReferencePointer {
     parent: IResult | IResult[];
     field: string | number;
     path: string[];
 }
 
-// object id fields in search result
+// object id values in search result
 export interface IObjectIdInData {
     [field: string]: IReferencePointer[];
 }
 
-// mongo query object
+// mongo query
 export interface IQuery {
     [index: string]: any;
 }
@@ -73,10 +73,22 @@ export interface IOptions {
 
 export class Mongo {
 
+    /**
+     * classes that extends this class must implement this static method to set the collection name of the model
+     * @static
+     * @returns {string} - the collection name of the model
+     * @memberof Mongo
+     */
     public static getCollectionName (): string {
         throw Error('Undefined static method "getCollectionName"');
     }
 
+    /**
+     * classes that extends this class must implement this static method to set the schema of the model
+     * @static
+     * @returns {object} - model schema
+     * @memberof Mongo
+     */
     public static getSchema (): ISchema {
         throw new Error('Undefined static method "getSchema"');
     }
@@ -85,28 +97,63 @@ export class Mongo {
     private _collection: Collection;
     private _db: Db;
 
+    /* tslint:disable */
+    /**
+     * Creates an instance of Mongo.
+     * @param {object} options
+     * @param {object} options.db - a Db instance from mongo node client e.g. v3.x MongoClient.connect(url, (err, client) => { const db = client.db(dbName); ... }) v2.x MongoClient.connect(url, (err, db) => { ... })
+     * @memberof Mongo
+     */
+    /* tslint:enable */
     constructor (options: IOptions) {
         this._db = options.db;
         this._schema = (this.constructor as typeof Mongo).getSchema();
         this._collection = this._db.collection((this.constructor as typeof Mongo).getCollectionName());
     }
 
+    /**
+     * @param {(object | string)} id - a string or an instance of ObjectID
+     * @returns {(object | undefined)} - an ObjectID or undefined if "id" is not an valid ObjectID string
+     * @memberof Mongo
+     */
     public getObjectID (id: ObjectID | string): ObjectID | undefined {
         return ObjectID.isValid(id) ? new ObjectID(id) : undefined;
     }
 
+    /**
+     * an alias of the getObjectID() method.
+     */
     public getObjectId (id: ObjectID | string): ObjectID | undefined {
         return this.getObjectID(id);
     }
 
+    /**
+     * @returns {object} - returns the db instance previously passed into the constructor
+     * @memberof Mongo
+     */
     public getDb (): Db {
         return this._db;
     }
 
+    /**
+     * @returns {object} - mongo Collection insance of the current model
+     * @memberof Mongo
+     */
     public getCollection (): Collection {
         return this._collection;
     }
 
+    /* tslint:disable */
+    /**
+     * see parameter description for query and options in http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find
+     * @param {object} query - same as query in mongo collection.find()
+     * @param {object} [options={}] - all value in options for mongo collection.find()
+     * @param {object} [options.join] - query for joining other collections. format: { on: string | string[], projection?: { [fieldname]: 1 | 0 }, filters?: {...}, join?: { on: ..., projection?: ..., filters?: ..., join?: ... }[] }
+     * @param {object} [options.cursor=false] - if to return a cursor, by default an array is returned
+     * @returns {(Promise<Cursor | object[]>)}
+     * @memberof Mongo
+     */
+    /* tslint:enable */
     public async find (query: IQuery, options: IFindOptions = {}): Promise<Cursor | IResult[]> {
         const cursor = this._collection.find(
             await this._getJoinQuery(this.constructor as typeof Mongo, query, options.join),
@@ -116,6 +163,15 @@ export class Mongo {
         return options.join ? await this.attachObjectIdData(data, options.join) : data;
     }
 
+    /* tslint:disable */
+    /**
+     * Attach referenced collection data to a query result. Note: filters in join are not supported if this method is used directly on a query result i.e. not using find(). Use find() if you want to filter result by the data in referenced collections
+     * @param {(Cursor | object[])} data - a mongo query result
+     * @param {object[]} joins - query for joining other collections. format: { on: string | string[], projection?: { [fieldname]: 1 | 0 }, join?: { on: ..., projection?: ..., join?: ... }[] }
+     * @returns {(Promise<Cursor | object[]>)}
+     * @memberof Mongo
+     */
+    /* tslint:enable */
     public async attachObjectIdData (data: Cursor | IResult[], joins: IJoin[]): Promise<Cursor | IResult[]> {
         if (data.constructor.name === 'Cursor') {
             return (data as Cursor).map(
@@ -125,7 +181,7 @@ export class Mongo {
                         joins,
                         {
                             type: DataType.OBJECT,
-                            object: this._schema
+                            schema: this._schema
                         }
                     );
                     return row;
@@ -137,7 +193,7 @@ export class Mongo {
                 joins,
                 {
                     type: DataType.OBJECT,
-                    object: this._schema,
+                    schema: this._schema,
                     array: data.constructor.name === 'Array'
                 }
             );
@@ -145,10 +201,21 @@ export class Mongo {
         return data;
     }
 
+    /**
+     * attach referenced data to reference pointers found in query result
+     * @ignore
+     * @private
+     * @param {(object[] | object)} data - query data
+     * @param {object[]} joins - query for joining other collections
+     * @param {object} dataSchema - schema of the data
+     * @param {object} [model=this.constructor] - model class of the data
+     * @returns {Promise<void>}
+     * @memberof Mongo
+     */
     private async _attachDataToReferencePointer (
         data: IResult[] | IResult,
         joins: IJoin[],
-        fieldSchema: IFieldSchema,
+        dataSchema: IDataSchema,
         model: typeof Mongo = this.constructor as typeof Mongo
     ): Promise<void> {
         const fieldPathsInJoin = joins.reduce((fieldPaths, join) => {
@@ -156,7 +223,7 @@ export class Mongo {
         }, [] as string[]);
 
         const objectIdInData: IObjectIdInData = {};
-        this._findObjectIdInData(data, fieldSchema, fieldPathsInJoin, objectIdInData);
+        this._findObjectIdInData(data, dataSchema, fieldPathsInJoin, objectIdInData);
 
         if (Object.keys(objectIdInData).length === 0) {
             return;
@@ -217,7 +284,7 @@ export class Mongo {
                     join.join,
                     {
                         type: DataType.OBJECT,
-                        object: joinModel.getSchema(),
+                        schema: joinModel.getSchema(),
                         array: true
                     },
                     joinModel
@@ -241,20 +308,31 @@ export class Mongo {
         }
     }
 
+    /**
+     * find all object id values in a query result
+     * @ignore
+     * @private
+     * @param {*} data - (row) data in query
+     * @param {object} fieldSchema - data schema
+     * @param {string[]} fieldPathsInJoin - values of the "on" fields in joins
+     * @param {IObjectIdInData} objectIdInData - object id values found in a query result
+     * @param {IReferencePointer} [referencePointer] - current reference pointer to the data param
+     * @memberof Mongo
+     */
     private _findObjectIdInData (
         data: any,
-        fieldConfig: IFieldSchema,
+        fieldSchema: IDataSchema,
         fieldPathsInJoin: string[],
         objectIdInData: IObjectIdInData,
         referencePointer?: IReferencePointer
     ): void {
-        if (fieldConfig) { // _id field and auto generated fields (e.g.dateCreated etc) do not have fieldConfig values.
-            if (fieldConfig.array) {
+        if (fieldSchema) { // _id field and auto generated fields (e.g.dateCreated etc) do not have fieldConfig values.
+            if (fieldSchema.array) {
                 toArray(data).forEach((row, index) => {
                     this._findObjectIdInData(
                         row,
                         {
-                            ...fieldConfig,
+                            ...fieldSchema,
                             array: false
                         },
                         fieldPathsInJoin,
@@ -267,17 +345,17 @@ export class Mongo {
                     );
                 });
             } else {
-                switch (fieldConfig.type) {
+                switch (fieldSchema.type) {
                     case DataType.OBJECT:
-                        if (!fieldConfig.object) {
+                        if (!fieldSchema.schema) {
                             throw new Error(
-                                `Undefined "object" property on "${fieldConfig.type}" type in ${JSON.stringify(fieldConfig)}`
+                                `Undefined "schema" property on "${fieldSchema.type}" type in ${JSON.stringify(fieldSchema)}`
                             );
                         }
                         for (const field in data) {
                             this._findObjectIdInData(
                                 data[field],
-                                fieldConfig.object[field],
+                                fieldSchema.schema[field],
                                 fieldPathsInJoin,
                                 objectIdInData,
                                 {
@@ -290,15 +368,15 @@ export class Mongo {
                         break;
                     case DataType.OBJECTID:
                         if (data && referencePointer) {
-                            if (!fieldConfig.model) {
+                            if (!fieldSchema.model) {
                                 throw new Error(
-                                    `Undefined "model" property on "${fieldConfig.type}" type in ${JSON.stringify(fieldConfig)}`
+                                    `Undefined "model" property on "${fieldSchema.type}" type in ${JSON.stringify(fieldSchema)}`
                                 );
                             }
 
                             const fieldPath = referencePointer.path.join('.');
                             if (fieldPathsInJoin.includes(fieldPath)) {
-                                const collection = fieldConfig.model.getCollectionName();
+                                const collection = fieldSchema.model.getCollectionName();
 
                                 if (!objectIdInData[fieldPath]) {
                                     objectIdInData[fieldPath] = [];
@@ -319,6 +397,16 @@ export class Mongo {
         }
     }
 
+    /**
+     * create a query based on joins
+     * @ignore
+     * @private
+     * @param {object} model - model class on which the join is applied
+     * @param {object} [query={}] - existing queries
+     * @param {object[]} [joins] - query for joining other collections
+     * @returns {Promise<object>} - query based on join data
+     * @memberof Mongo
+     */
     private async _getJoinQuery (model: typeof Mongo, query: IQuery = {}, joins?: IJoin[]): Promise<IQuery> {
         if (query && typeof(query._id) === 'string') {
             query._id = this.getObjectID(query._id);
@@ -372,13 +460,22 @@ export class Mongo {
         return query;
     }
 
+    /**
+     * find the model class that the join field references to
+     * @ignore
+     * @private
+     * @param {string} fieldPath - the "on" value in join i.e the field name/path of the join
+     * @param {object} model - model class that contains the field
+     * @returns {object} - model class that the field references to
+     * @memberof Mongo
+     */
     private _findObjectIdFieldModel (fieldPath: string, model: typeof Mongo): typeof Mongo {
         const fields = fieldPath.split('.');
         let schema: ISchema = model.getSchema();
         while (fields.length > 1) {
             const field = fields.shift() as string;
-            if (schema[field].object) {
-                schema = schema[field].object as ISchema;
+            if (schema[field].schema) {
+                schema = schema[field].schema as ISchema;
             } else {
                 throw new Error(
                     'Undefined "model" property or Invalid Object ID field in join statement.\n'
