@@ -4,24 +4,56 @@ import { toArray } from '@coolgk/array';
 // model field data types
 export enum DataType {
     String = 'string',
+    Boolean = 'bool',
+    Date = 'date',
     Number = 'number',
     Document = 'document',
     Enum = 'enum',
-    Boolean = 'boolean',
-    Date = 'date',
-    ObjectId = 'objectid',
-    ObjectID = 'objectid'
+    ObjectId = 'objectId',
+    ObjectID = 'objectId'
 }
 
 // model data schema
 export interface IDataSchema {
     type: DataType;
-    setter?: (value: any) => any;
-    enum?: (string | number | boolean)[];
-    default?: any;
     model?: typeof Mongo;
     schema?: ISchema;
     array?: boolean;
+    // insert/update hooks
+    setter?: (value: any) => any;
+    default?: any;
+    // validation properties
+    enum?: any[];
+    required?: boolean;
+    maxLength?: number;
+    minLength?: number;
+    minimum?: number | Date;
+    maximum?: number | Date;
+    maxItems?: number;
+    minItems?: number;
+    uniqueItems?: boolean;
+    pattern?: string;
+}
+
+export interface IJsonSchemaProperties {
+    [field: string]: IJsonSchema;
+}
+
+export interface IJsonSchema {
+    bsonType?: string | string[];
+    required?: string[];
+    enum?: any[];
+    items?: IJsonSchema | IJsonSchema[];
+    properties?: IJsonSchemaProperties;
+    additionalProperties?: boolean;
+    maxItems?: number;
+    minItems?: number;
+    uniqueItems?: boolean;
+    maxLength?: number;
+    minLength?: number;
+    minimum?: number | Date;
+    maximum?: number | Date;
+    pattern?: string;
 }
 
 // model schema
@@ -72,6 +104,8 @@ export interface IOptions {
     db: Db;
 }
 
+export class MongoError extends Error {}
+
 export class Mongo {
 
     /**
@@ -81,7 +115,7 @@ export class Mongo {
      * @memberof Mongo
      */
     public static getCollectionName (): string {
-        throw Error('Undefined static method "getCollectionName"');
+        throw new MongoError('Undefined static method "getCollectionName"');
     }
 
     /**
@@ -91,7 +125,7 @@ export class Mongo {
      * @memberof Mongo
      */
     public static getSchema (): ISchema {
-        throw new Error('Undefined static method "getSchema"');
+        throw new MongoError('Undefined static method "getSchema"');
     }
 
     private _schema: ISchema = {};
@@ -142,6 +176,31 @@ export class Mongo {
      */
     public getCollection (): Collection {
         return this._collection;
+    }
+
+    public async setDbValidationSchema (): Promise<any> {
+        const collections = await this._db.collections();
+        const collectionName = (this.constructor as typeof Mongo).getCollectionName();
+
+        if (collections.find((collection) => collection.collectionName === collectionName)) {
+            return this._db.command({ // https://docs.mongodb.com/manual/reference/command/collMod/
+                collMod: collectionName,
+                validator: {
+                    $jsonSchema: this._getJsonSchema(this._schema)
+                },
+                validationLevel: 'strict',
+                validationAction: 'error'
+            });
+        }
+
+        return this._db.createCollection(collectionName, {
+            validator: {
+                $jsonSchema: this._getJsonSchema(this._schema)
+            },
+            validationLevel: 'strict',
+            validationAction: 'error'
+        });
+
     }
 
     // public async save (): Promise<{}> {
@@ -353,7 +412,7 @@ export class Mongo {
                 switch (fieldSchema.type) {
                     case DataType.Document:
                         if (!fieldSchema.schema) {
-                            throw new Error(
+                            throw new MongoError(
                                 `Undefined "schema" property on "${fieldSchema.type}" type in ${JSON.stringify(fieldSchema)}`
                             );
                         }
@@ -374,7 +433,7 @@ export class Mongo {
                     case DataType.ObjectId:
                         if (data && referencePointer) {
                             if (!fieldSchema.model) {
-                                throw new Error(
+                                throw new MongoError(
                                     `Undefined "model" property on "${fieldSchema.type}" type in ${JSON.stringify(fieldSchema)}`
                                 );
                             }
@@ -482,7 +541,7 @@ export class Mongo {
             if (schema[field].schema) {
                 schema = schema[field].schema as ISchema;
             } else {
-                throw new Error(
+                throw new MongoError(
                     'Undefined "model" property or Invalid Object ID field in join statement.\n'
                     + `On: "${fieldPath}"\n`
                     + `Collection: ${model.getCollectionName()}\n`
@@ -496,12 +555,83 @@ export class Mongo {
         if (fieldModel) {
             return fieldModel;
         }
-        throw new Error(
+        throw new MongoError(
             '\nUndefined "model" property or Invalid Object ID field in join statement.\n'
             + `On: "${fieldPath}"\n`
             + `Collection: ${model.getCollectionName()}\n`
             + `Schema: ${JSON.stringify(model.getSchema())}\n`
         );
+    }
+
+
+    private _getJsonSchema (schema: ISchema): IJsonSchema {
+        const jsonSchema: IJsonSchema = {
+            bsonType: 'object',
+            additionalProperties: false
+        };
+        const properties: IJsonSchemaProperties = {
+            _id: {
+                bsonType: 'objectId'
+            }
+        };
+        const required: string[] = [];
+
+        for (const field in schema) {
+            let propertyJsonSchema: IJsonSchema = {};
+
+            schema[field].maxLength && (propertyJsonSchema.maxLength = schema[field].maxLength);
+            schema[field].minLength && (propertyJsonSchema.minLength = schema[field].minLength);
+            schema[field].minimum && (propertyJsonSchema.minimum = schema[field].minimum);
+            schema[field].maximum && (propertyJsonSchema.maximum = schema[field].maximum);
+            schema[field].pattern && (propertyJsonSchema.pattern = schema[field].pattern);
+
+            switch (schema[field].type) {
+                case DataType.Number:
+                    propertyJsonSchema.bsonType = ['double', 'int', 'long', 'decimal'];
+                    break;
+                case DataType.Enum:
+                    propertyJsonSchema.enum = schema[field].enum;
+                    break;
+                case DataType.Document:
+                    propertyJsonSchema = this._getJsonSchema(schema[field].schema as ISchema);
+                    break;
+                default:
+                    propertyJsonSchema.bsonType = schema[field].type;
+                    break;
+            }
+
+            if (schema[field].array) {
+                properties[field] = {
+                    bsonType: 'array',
+                    items: propertyJsonSchema
+                };
+
+                schema[field].maxItems && (properties[field].maxItems = schema[field].maxItems);
+                schema[field].minItems && (properties[field].minItems = schema[field].minItems);
+                schema[field].uniqueItems && (properties[field].uniqueItems = schema[field].uniqueItems);
+            } else {
+                properties[field] = propertyJsonSchema;
+            }
+
+            if (schema[field].required) {
+                required.push(field);
+            } else { // allow null & undefined as value
+                if (properties[field].bsonType) {
+                    properties[field].bsonType = [ ...toArray(properties[field].bsonType), 'null' ];
+                }
+                if (properties[field].enum) {
+                    properties[field].enum = [ ...toArray(properties[field].enum), null ];
+                }
+            }
+        }
+
+        jsonSchema.properties = properties;
+
+        if (required.length) {
+            jsonSchema.required = required;
+        }
+
+        return jsonSchema;
     }
 }
 

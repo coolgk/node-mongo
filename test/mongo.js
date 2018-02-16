@@ -6,10 +6,10 @@ chai.use(require('chai-as-promised'));
 const expect = chai.expect;
 
 describe.only('Mongo Module', function () {
-    this.timeout(5000);
+    this.timeout(30000);
 
     const { Mongo, DataType } = require(`../dist/mongo`);
-    const { MongoClient, ObjectID } = require('mongodb');
+    const { MongoClient, ObjectID, writeError } = require('mongodb');
 
     let model;
     let db;
@@ -293,7 +293,7 @@ describe.only('Mongo Module', function () {
 
         MongoClient.connect(process.env.MONGO_URL, async (error, client) => {
             if (error) {
-                throw error;
+                return done(error);
             }
 
             db = client.db(process.env.MONGO_DB_NAME);
@@ -339,7 +339,7 @@ describe.only('Mongo Module', function () {
 
     after(async () => {
         await db.dropDatabase();
-        await mongoClient.close();
+        await mongoClient.close(true);
     });
 
     describe('native mongo operations', () => {
@@ -767,52 +767,454 @@ describe.only('Mongo Module', function () {
     });
 
     describe('save & update', () => {
-        beforeEach(() => {
-            class M5 extends Mongo {
-                static getSchema () {
-                    return {
-                        stringArray: {
-                            type: DataType.String,
-                            array: true
-                        },
-                        enumArray: {
-                            type: DataType.Enum,
-                            array: true,
-                            enum: ['a', 'b', 1]
-                        },
-                        number: {
-                            type: DataType.Number
-                        },
-                        boolean: {
-                            type: DataType.Boolean
-                        },
-                        date: {
-                            type: DataType.Date
-                        },
-                        objectid: {
-                            type: DataType.ObjectID
-                        },
-                        doc: {
-                            type: DataType.Document
+
+        class M5 extends Mongo {
+            static getSchema () {
+                return {
+                    stringArray: {
+                        type: DataType.String,
+                        array: true,
+                        maxItems: 2,
+                        maxLength: 10,
+                        minLength: 2
+                    },
+                    enumArray: {
+                        type: DataType.Enum,
+                        array: true,
+                        enum: ['a', 'b', 1],
+                        minItems: 2,
+                        uniqueItems: true
+                    },
+                    docArray: {
+                        type: DataType.Document,
+                        array: true,
+                        schema: {
+                            string: {
+                                type: DataType.String,
+                                pattern: '^abc.+'
+                            },
+                            enum: {
+                                type: DataType.Enum,
+                                enum: [3, 4, 5],
+                                required: true
+                            },
+                            docInArray: {
+                                type: DataType.Document,
+                                schema: {
+                                    number: {
+                                        type: DataType.Number,
+                                        maximum: 10,
+                                        required: true
+                                    }
+                                }
+                            }
                         }
-                    };
-                }
-                static getCollectionName () {
-                    return 'M5Collection';
-                }
+                    },
+                    number: {
+                        type: DataType.Number,
+                        minimum: 10
+                    },
+                    boolean: {
+                        type: DataType.Boolean,
+                        required: true
+                    },
+                    date: {
+                        type: DataType.Date,
+                        required: true
+                    },
+                    objectid: {
+                        type: DataType.ObjectID
+                    },
+                    doc: {
+                        type: DataType.Document,
+                        schema: {
+                            boolean: {
+                                type: DataType.Boolean
+                            }
+                        }
+                    },
+                    string: {
+                        type: DataType.String
+                    },
+                    enum: {
+                        type: DataType.Enum,
+                        enum: ['x']
+                    }
+                };
             }
+            static getCollectionName () {
+                return 'M5Collection';
+            }
+        }
+
+        /* const example = {
+            a: {
+                b: [
+                    {
+                        c: []
+                    }
+                ]
+            },
+            b: [
+                {
+                    c: {
+                        d: []
+                    }
+                }
+            ]
+        }; */
+
+        let model5;
+        let newDoc;
+        beforeEach(() => {
+            model5 = new M5({ db });
+            newDoc = {
+                stringArray: ['d', 'c'],
+                enumArray: ['b', 1],
+                docArray: [
+                    { string: 'e', enum: 3, docInArray: { number: 1 } },
+                    { string: 'f', enum: 5, docInArray: { number: 2 } }
+                ],
+                number: 41,
+                boolean: true,
+                date: new Date(),
+                objectid: new ObjectID()
+            };
         });
 
-        it('should validate data based on type');
+        afterEach(async () => {
+            await model5.getCollection().drop();
+        });
+
+        it('should set validation schema on new dbs', async () => {
+            await model5.setDbValidationSchema();
+            const collectionOptions = await model5.getCollection().options();
+            expect(collectionOptions).to.have.property('validator');
+            expect(collectionOptions).to.have.property('validationLevel', 'strict');
+            expect(collectionOptions).to.have.property('validationAction', 'error');
+        });
+
+        it('should set validation schema on existing dbs', async () => {
+            await db.createCollection(M5.getCollectionName());
+            await model5.setDbValidationSchema();
+            const collectionOptions = await model5.getCollection().options();
+            expect(collectionOptions).to.have.property('validator');
+            expect(collectionOptions).to.have.property('validationLevel', 'strict');
+            expect(collectionOptions).to.have.property('validationAction', 'error');
+        });
+
+        describe('data validation', () => {
+            beforeEach(() => {
+                return model5.setDbValidationSchema();
+            });
+
+            it('should validate required fields', () => {
+                return Promise.all([
+                    // missing all required fields
+                    expect(model5.getCollection().insertOne({})).to.be.rejectedWith(writeError),
+                    // missing one rquired field
+                    expect(model5.getCollection().insertOne({ boolean: true })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({ boolean: undefined, date: null })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: false,
+                        date: new Date(),
+                        docArray: [
+                            {
+                                string: 'abc'
+                            }
+                        ]
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: false,
+                        date: new Date(),
+                        docArray: [
+                            {
+                                enum: 3,
+                                docInArray: {}
+                            }
+                        ]
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: false,
+                        date: new Date(),
+                        docArray: [
+                            {
+                                enum: 3,
+                                docInArray: {
+                                    number: null
+                                }
+                            }
+                        ]
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: false,
+                        date: new Date(),
+                        docArray: [
+                            {
+                                enum: 3,
+                                docInArray: {
+                                    number: 10
+                                }
+                            }
+                        ]
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate string type', () => {
+                // invalid string
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        string: [null]
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        string: 'asdf'
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate enum type', () => {
+                // invalid enum
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        enum: '[undefined]'
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        enum: 'x'
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate number type', () => {
+                // invalid number
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        number: '1234'
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        number: 1234
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate boolean type', () => {
+                // invalid boolean
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: 'undefined',
+                        date: new Date()
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date()
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate date type', () => {
+                // invalid date
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: 'undefined'
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date()
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate object id type', () => {
+                // invalid object id
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        objectid: 'null'
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        objectid: new ObjectID()
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate document type', () => {
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        doc: '{ a: 1 }'
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        doc: {
+                            boolean: true
+                        }
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate properties that are not defined in schema', () => {
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        doc: { a: 1 } // a is not set in schema, this should fail
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        doc: { boolean: false }
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate maxLength and minLength', () => {
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        stringArray: ['a']
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        stringArray: ['12345678901']
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        stringArray: ['123412']
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate minimum and maximum', () => {
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        number: 9
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        docArray: [{
+                            enum: 3,
+                            docInArray: {
+                                number: 11
+                            }
+                        }]
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        number: 10,
+                        docArray: [{
+                            enum: 3,
+                            docInArray: {
+                                number: 10
+                            }
+                        }]
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate maxItems, minItems and uniqueItems', () => {
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        stringArray: ['a', 'b', '3'] // max
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        enumArray: [1] // min
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        enumArray: ['a', 'a'] // unique
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        stringArray: ['11', '22'],
+                        enumArray: ['a', 1]
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should validate pattern', () => {
+                return Promise.all([
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        docArray: [{
+                            enum: 3,
+                            string: 'aabc'
+                        }]
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        docArray: [{
+                            enum: 3,
+                            string: 'abc'
+                        }]
+                    })).to.be.rejectedWith(writeError),
+                    expect(model5.getCollection().insertOne({
+                        boolean: true,
+                        date: new Date(),
+                        docArray: [{
+                            enum: 3,
+                            string: 'abcd'
+                        }]
+                    })).to.be.fulfilled
+                ]);
+            });
+
+            it('should store null and undefined values to non-required field', () => {
+                return expect(model5.getCollection().insertOne({
+                    string: 'null',
+                    enum: 'x',
+                    boolean: true,
+                    date: new Date(),
+                    objectid: null,
+                    number: undefined,
+                    enumArray: undefined,
+                    stringArray: null,
+                    doc: null,
+                    docArray: null
+                })).to.be.fulfilled;
+            });
+
+        });
+
+        it('should save data');
+
+        it('should set default value');
 
         it('should use setter() function to set data');
 
-        it('should add dateModified value on documents', async () => {
-            // const newDoc = {
-
-            // };
-            // model.save();
-        });
+        it('should add dateModified value on documents');
 
         it('should add _id and dataModified on all documents in arrays');
 
