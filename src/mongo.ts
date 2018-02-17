@@ -1,16 +1,15 @@
-import { Db, ObjectID, Cursor, Collection, FindOneOptions } from 'mongodb';
+import { Db, ObjectID, Cursor, Collection, FindOneOptions, InsertOneWriteOpResult, InsertWriteOpResult } from 'mongodb';
 import { toArray } from '@coolgk/array';
 
 // model field data types
 export enum DataType {
-    String = 'string',
-    Boolean = 'bool',
-    Date = 'date',
-    Number = 'number',
-    Document = 'document',
-    Enum = 'enum',
-    ObjectId = 'objectId',
-    ObjectID = 'objectId'
+    STRING = 'string',
+    BOOLEAN = 'bool',
+    DATE = 'date',
+    NUMBER = 'number',
+    DOCUMENT = 'document',
+    ENUM = 'enum',
+    OBJECTID = 'objectId'
 }
 
 // model data schema
@@ -35,34 +34,13 @@ export interface IDataSchema {
     pattern?: string;
 }
 
-export interface IJsonSchemaProperties {
-    [field: string]: IJsonSchema;
-}
-
-export interface IJsonSchema {
-    bsonType?: string | string[];
-    required?: string[];
-    enum?: any[];
-    items?: IJsonSchema | IJsonSchema[];
-    properties?: IJsonSchemaProperties;
-    additionalProperties?: boolean;
-    maxItems?: number;
-    minItems?: number;
-    uniqueItems?: boolean;
-    maxLength?: number;
-    minLength?: number;
-    minimum?: number | Date;
-    maximum?: number | Date;
-    pattern?: string;
-}
-
 // model schema
 export interface ISchema {
     [field: string]: IDataSchema;
 }
 
 // query result
-export interface IResult {
+export interface IDocument {
     [field: string]: any;
 }
 
@@ -76,18 +54,6 @@ export interface IJoin {
     join?: IJoin[];
     data?: Cursor;
     model?: typeof Mongo;
-}
-
-// reference pointer to object id values found in a query result
-export interface IReferencePointer {
-    parent: IResult | IResult[];
-    field: string | number;
-    path: string[];
-}
-
-// object id values in search result
-export interface IObjectIdInData {
-    [field: string]: IReferencePointer[];
 }
 
 // mongo query
@@ -104,7 +70,47 @@ export interface IOptions {
     db: Db;
 }
 
+// reference pointer to object id values found in a query result
+interface IReferencePointer {
+    parent: IDocument | IDocument[];
+    field: string | number;
+    path?: string[];
+}
+
+// object id values in search result
+interface IObjectIdInData {
+    [field: string]: IReferencePointer[];
+}
+
+// db validation schema
+interface IJsonSchemaProperties {
+    [field: string]: IJsonSchema;
+}
+
+// db validation schema
+interface IJsonSchema {
+    bsonType?: string | string[];
+    required?: string[];
+    enum?: any[];
+    items?: IJsonSchema | IJsonSchema[];
+    properties?: IJsonSchemaProperties;
+    additionalProperties?: boolean;
+    maxItems?: number;
+    minItems?: number;
+    uniqueItems?: boolean;
+    maxLength?: number;
+    minLength?: number;
+    minimum?: number | Date;
+    maximum?: number | Date;
+    pattern?: string;
+}
+
+export enum GeneratedField {
+    DATE_MODIFIED = '_dateModified'
+}
+
 export class MongoError extends Error {}
+export class SchemaError extends Error {} // tslint:disable-line
 
 export class Mongo {
 
@@ -121,7 +127,7 @@ export class Mongo {
     /**
      * classes that extends this class must implement this static method to set the schema of the model
      * @static
-     * @returns {object} - model schema
+     * @returns {object} - model schema, see documentaion.
      * @memberof Mongo
      */
     public static getSchema (): ISchema {
@@ -178,6 +184,11 @@ export class Mongo {
         return this._collection;
     }
 
+    /**
+     * set validation schema in mongo
+     * @returns {Promise<*>} - a promise returned from mongo native commands (createCollection or collMod)
+     * @memberof Mongo
+     */
     public async setDbValidationSchema (): Promise<any> {
         const collections = await this._db.collections();
         const collectionName = (this.constructor as typeof Mongo).getCollectionName();
@@ -200,12 +211,15 @@ export class Mongo {
             validationLevel: 'strict',
             validationAction: 'error'
         });
-
     }
 
-    // public async save (): Promise<{}> {
-
-    // }
+    public async save (data: IDocument | IDocument[]): Promise<InsertOneWriteOpResult | InsertWriteOpResult> {
+        await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true });
+        if (data instanceof Array) {
+            return this._collection.insertMany(data);
+        }
+        return this._collection.insertOne(data);
+    }
 
     /* tslint:disable */
     /**
@@ -218,7 +232,7 @@ export class Mongo {
      * @memberof Mongo
      */
     /* tslint:enable */
-    public async find (query: IQuery, options: IFindOptions = {}): Promise<Cursor | IResult[]> {
+    public async find (query: IQuery, options: IFindOptions = {}): Promise<Cursor | IDocument[]> {
         const cursor = this._collection.find(
             await this._getJoinQuery(this.constructor as typeof Mongo, query, options.join),
             options
@@ -236,15 +250,15 @@ export class Mongo {
      * @memberof Mongo
      */
     /* tslint:enable */
-    public async attachObjectIdData (data: Cursor | IResult[], joins: IJoin[]): Promise<Cursor | IResult[]> {
+    public async attachObjectIdData (data: Cursor | IDocument[], joins: IJoin[]): Promise<Cursor | IDocument[]> {
         if (data.constructor.name === 'Cursor') {
             return (data as Cursor).map(
-                async (row: IResult) => {
+                async (row: IDocument) => {
                     await this._attachDataToReferencePointer(
                         row,
                         joins,
                         {
-                            type: DataType.Document,
+                            type: DataType.DOCUMENT,
                             schema: this._schema
                         }
                     );
@@ -256,7 +270,7 @@ export class Mongo {
                 data,
                 joins,
                 {
-                    type: DataType.Document,
+                    type: DataType.DOCUMENT,
                     schema: this._schema,
                     array: data.constructor.name === 'Array'
                 }
@@ -277,7 +291,7 @@ export class Mongo {
      * @memberof Mongo
      */
     private async _attachDataToReferencePointer (
-        data: IResult[] | IResult,
+        data: IDocument[] | IDocument,
         joins: IJoin[],
         dataSchema: IDataSchema,
         model: typeof Mongo = this.constructor as typeof Mongo
@@ -335,7 +349,7 @@ export class Mongo {
             // if else here is for looping cursor only once to attach data
             if (join.join) {
                 await this._attachDataToReferencePointer(
-                    await joinData.map((row: IResult) => {
+                    await joinData.map((row: IDocument) => {
                         // field could be in join but not in the projection of the upper level
                         // example in test case: should filter resursive object id referenced fields when there are multiple matches
                         if (referencePointers[row._id]) {
@@ -347,7 +361,7 @@ export class Mongo {
                     }).toArray(),
                     join.join,
                     {
-                        type: DataType.Document,
+                        type: DataType.DOCUMENT,
                         schema: joinModel.getSchema(),
                         array: true
                     },
@@ -377,7 +391,7 @@ export class Mongo {
      * @ignore
      * @private
      * @param {*} data - (row) data in query
-     * @param {object} fieldSchema - data schema
+     * @param {object} dataSchema - data schema
      * @param {string[]} fieldPathsInJoin - values of the "on" fields in joins
      * @param {IObjectIdInData} objectIdInData - object id values found in a query result
      * @param {IReferencePointer} [referencePointer] - current reference pointer to the data param
@@ -385,18 +399,18 @@ export class Mongo {
      */
     private _findObjectIdInData (
         data: any,
-        fieldSchema: IDataSchema,
+        dataSchema: IDataSchema,
         fieldPathsInJoin: string[],
         objectIdInData: IObjectIdInData,
         referencePointer?: IReferencePointer
     ): void {
-        if (fieldSchema) { // _id field and auto generated fields (e.g.dateCreated etc) do not have fieldConfig values.
-            if (fieldSchema.array) {
+        if (dataSchema) { // _id field and auto generated fields (e.g.dateCreated etc) do not have fieldConfig values.
+            if (dataSchema.array) {
                 toArray(data).forEach((row, index) => {
                     this._findObjectIdInData(
                         row,
                         {
-                            ...fieldSchema,
+                            ...dataSchema,
                             array: false
                         },
                         fieldPathsInJoin,
@@ -409,17 +423,17 @@ export class Mongo {
                     );
                 });
             } else {
-                switch (fieldSchema.type) {
-                    case DataType.Document:
-                        if (!fieldSchema.schema) {
-                            throw new MongoError(
-                                `Undefined "schema" property on "${fieldSchema.type}" type in ${JSON.stringify(fieldSchema)}`
+                switch (dataSchema.type) {
+                    case DataType.DOCUMENT:
+                        if (!dataSchema.schema) {
+                            throw new SchemaError(
+                                `Undefined "schema" property on "${dataSchema.type}" type in ${JSON.stringify(dataSchema)}`
                             );
                         }
                         for (const field in data) {
                             this._findObjectIdInData(
                                 data[field],
-                                fieldSchema.schema[field],
+                                dataSchema.schema[field],
                                 fieldPathsInJoin,
                                 objectIdInData,
                                 {
@@ -430,17 +444,17 @@ export class Mongo {
                             );
                         }
                         break;
-                    case DataType.ObjectId:
+                    case DataType.OBJECTID:
                         if (data && referencePointer) {
-                            if (!fieldSchema.model) {
-                                throw new MongoError(
-                                    `Undefined "model" property on "${fieldSchema.type}" type in ${JSON.stringify(fieldSchema)}`
+                            if (!dataSchema.model) {
+                                throw new SchemaError(
+                                    `Undefined "model" property on "${dataSchema.type}" type in ${JSON.stringify(dataSchema)}`
                                 );
                             }
 
-                            const fieldPath = referencePointer.path.join('.');
+                            const fieldPath = (referencePointer.path as string[]).join('.');
                             if (fieldPathsInJoin.includes(fieldPath)) {
-                                const collection = fieldSchema.model.getCollectionName();
+                                const collection = dataSchema.model.getCollectionName();
 
                                 if (!objectIdInData[fieldPath]) {
                                     objectIdInData[fieldPath] = [];
@@ -541,8 +555,8 @@ export class Mongo {
             if (schema[field].schema) {
                 schema = schema[field].schema as ISchema;
             } else {
-                throw new MongoError(
-                    'Undefined "model" property or Invalid Object ID field in join statement.\n'
+                throw new SchemaError(
+                    '\nUndefined "model" property or Invalid Object ID field in join statement.\n'
                     + `On: "${fieldPath}"\n`
                     + `Collection: ${model.getCollectionName()}\n`
                     + `Schema: ${JSON.stringify(model.getSchema())}\n`
@@ -555,7 +569,7 @@ export class Mongo {
         if (fieldModel) {
             return fieldModel;
         }
-        throw new MongoError(
+        throw new SchemaError(
             '\nUndefined "model" property or Invalid Object ID field in join statement.\n'
             + `On: "${fieldPath}"\n`
             + `Collection: ${model.getCollectionName()}\n`
@@ -563,7 +577,14 @@ export class Mongo {
         );
     }
 
-
+    /**
+     * create json schema for validation in mongo
+     * @ignore
+     * @private
+     * @param {object} schema - model schema
+     * @returns {object} - validation schema
+     * @memberof Mongo
+     */
     private _getJsonSchema (schema: ISchema): IJsonSchema {
         const jsonSchema: IJsonSchema = {
             bsonType: 'object',
@@ -572,6 +593,9 @@ export class Mongo {
         const properties: IJsonSchemaProperties = {
             _id: {
                 bsonType: 'objectId'
+            },
+            [GeneratedField.DATE_MODIFIED]: {
+                bsonType: 'date'
             }
         };
         const required: string[] = [];
@@ -586,13 +610,13 @@ export class Mongo {
             schema[field].pattern && (propertyJsonSchema.pattern = schema[field].pattern);
 
             switch (schema[field].type) {
-                case DataType.Number:
+                case DataType.NUMBER:
                     propertyJsonSchema.bsonType = ['double', 'int', 'long', 'decimal'];
                     break;
-                case DataType.Enum:
+                case DataType.ENUM:
                     propertyJsonSchema.enum = schema[field].enum;
                     break;
-                case DataType.Document:
+                case DataType.DOCUMENT:
                     propertyJsonSchema = this._getJsonSchema(schema[field].schema as ISchema);
                     break;
                 default:
@@ -632,6 +656,84 @@ export class Mongo {
         }
 
         return jsonSchema;
+    }
+
+    // add modified date in the main doc and docs in arrays, add _id in docs in arrays
+    // set default value (if defualt !== undefined, default could be 0)
+    // apply setter
+    // convert valid numbers (!isNaN()) to number '123' => 123
+    // convert string boolean to boolean 'false' or '0'  => false and cast other values to boolean
+    // convert object id and _id string to ObjectID object
+    // convert valid date string to Date object
+    private async _transform (data: any, dataSchema: IDataSchema, referencePointer?: IReferencePointer): Promise<void> {
+        if (!dataSchema) {
+            return;
+        }
+
+        if (data === undefined) {
+            if (dataSchema.default !== undefined && referencePointer) {
+                (referencePointer.parent as any)[referencePointer.field] = dataSchema.default;
+                data = dataSchema.default;
+            } else {
+                return;
+            }
+        }
+
+        if (dataSchema.array) {
+            data.forEach((row: any, index: number) => {
+                if (dataSchema.type === DataType.DOCUMENT) {
+                    if (!row[GeneratedField.DATE_MODIFIED]) {
+                        row[GeneratedField.DATE_MODIFIED] = new Date();
+                    }
+                    // assign new id if not exist and convert string id to ObjectId()
+                    row._id = row._id ? this.getObjectID(row._id) : new ObjectID();
+                }
+                this._transform(row, { ...dataSchema, array: false }, { parent: data, field: index });
+            });
+        } else {
+            if (dataSchema.setter && referencePointer) {
+                data = await dataSchema.setter(data);
+                (referencePointer.parent as any)[referencePointer.field] = data;
+            }
+
+            switch (dataSchema.type) {
+                case DataType.DOCUMENT:
+                    if (!dataSchema.schema) {
+                        throw new SchemaError(
+                            `Undefined "schema" property on "${dataSchema.type}" type in ${JSON.stringify(dataSchema)}`
+                        );
+                    }
+                    if (data instanceof Object) {
+                        for (const field in dataSchema.schema) {
+                            this._transform(data[field], dataSchema.schema[field], { parent: data, field });
+                        }
+                    }
+                    break;
+                case DataType.NUMBER:
+                    if (!isNaN(data)) {
+                        this._setTransformValue (+data, referencePointer);
+                    }
+                    break;
+                case DataType.DATE:
+                    const date = new Date(data);
+                    if (!isNaN(date.getTime())) {
+                        this._setTransformValue (date, referencePointer);
+                    }
+                    break;
+                case DataType.BOOLEAN:
+                    this._setTransformValue ((data === 'false' || data === '0') ? false : !!data, referencePointer);
+                    break;
+                case DataType.OBJECTID:
+                    this._setTransformValue (this.getObjectID(data), referencePointer);
+                    break;
+            }
+        }
+    }
+
+    private _setTransformValue (newValue: any, referencePointer?: IReferencePointer): void {
+        if (referencePointer) {
+            (referencePointer.parent as any)[referencePointer.field] = newValue;
+        }
     }
 }
 

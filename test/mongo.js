@@ -8,7 +8,7 @@ const expect = chai.expect;
 describe.only('Mongo Module', function () {
     this.timeout(30000);
 
-    const { Mongo, DataType } = require(`../dist/mongo`);
+    const { Mongo, DataType, GeneratedField } = require(`../dist/mongo`);
     const { MongoClient, ObjectID, writeError } = require('mongodb');
 
     let model;
@@ -33,53 +33,53 @@ describe.only('Mongo Module', function () {
             static getSchema () {
                 return {
                     string: {
-                        type: DataType.String,
+                        type: DataType.STRING,
                         default: 'xyz',
                         setter: (value) => {
                             return value + '-setter';
                         }
                     },
                     number: {
-                        type: DataType.Number
+                        type: DataType.NUMBER
                     },
                     boolean: {
-                        type: DataType.Boolean
+                        type: DataType.BOOLEAN
                     },
                     date: {
-                        type: DataType.Date
+                        type: DataType.DATE
                     },
                     model2DbRef: {
-                        type: DataType.ObjectID,
+                        type: DataType.OBJECTID,
                         model: Model2
                     },
                     enum: {
-                        type: DataType.Enum,
+                        type: DataType.ENUM,
                         enum: ['abc', 'xyz']
                     },
                     object: {
-                        type: DataType.Document,
+                        type: DataType.DOCUMENT,
                         schema: {
                             string: {
-                                type: DataType.String
+                                type: DataType.STRING
                             },
                             number: {
-                                type: DataType.Number
+                                type: DataType.NUMBER
                             }
                         }
                     },
                     stringArray: {
-                        type: DataType.String,
+                        type: DataType.STRING,
                         array: true
                     },
                     objectArray: {
-                        type: DataType.Document,
+                        type: DataType.DOCUMENT,
                         array: true,
                         schema: {
                             date: {
-                                type: DataType.Date
+                                type: DataType.DATE
                             },
                             model3DbRef: {
-                                type: DataType.ObjectID,
+                                type: DataType.OBJECTID,
                                 model: Model3
                             }
                         }
@@ -96,17 +96,17 @@ describe.only('Mongo Module', function () {
             static getSchema () {
                 return {
                     model3Ref: {
-                        type: DataType.ObjectID,
+                        type: DataType.OBJECTID,
                         model: Model3
                     },
                     string: {
-                        type: DataType.String
+                        type: DataType.STRING
                     },
                     number: {
-                        type: DataType.Number
+                        type: DataType.NUMBER
                     },
                     model4Ref: {
-                        type: DataType.ObjectID,
+                        type: DataType.OBJECTID,
                         model: Model4
                     }
                 };
@@ -121,12 +121,12 @@ describe.only('Mongo Module', function () {
             static getSchema () {
                 return {
                     enum: {
-                        type: DataType.Enum,
+                        type: DataType.ENUM,
                         array: true,
                         enum: ['aaa', 222, false]
                     },
                     boolean: {
-                        type: DataType.Boolean
+                        type: DataType.BOOLEAN
                     }
                 };
             }
@@ -139,7 +139,7 @@ describe.only('Mongo Module', function () {
         class M4 extends Mongo {
             static getSchema () {
                 return {
-                    m4str: DataType.String
+                    m4str: DataType.STRING
                 };
             }
             static getCollectionName () {
@@ -772,73 +772,114 @@ describe.only('Mongo Module', function () {
             static getSchema () {
                 return {
                     stringArray: {
-                        type: DataType.String,
+                        type: DataType.STRING,
                         array: true,
                         maxItems: 2,
                         maxLength: 10,
                         minLength: 2
                     },
                     enumArray: {
-                        type: DataType.Enum,
+                        type: DataType.ENUM,
                         array: true,
                         enum: ['a', 'b', 1],
                         minItems: 2,
                         uniqueItems: true
                     },
                     docArray: {
-                        type: DataType.Document,
+                        type: DataType.DOCUMENT,
                         array: true,
+                        default: [{
+                            enum: 5
+                        }],
                         schema: {
                             string: {
-                                type: DataType.String,
+                                type: DataType.STRING,
                                 pattern: '^abc.+'
                             },
                             enum: {
-                                type: DataType.Enum,
+                                type: DataType.ENUM,
                                 enum: [3, 4, 5],
                                 required: true
                             },
                             docInArray: {
-                                type: DataType.Document,
+                                type: DataType.DOCUMENT,
+                                default: {
+                                    number: 8
+                                },
                                 schema: {
                                     number: {
-                                        type: DataType.Number,
+                                        type: DataType.NUMBER,
                                         maximum: 10,
                                         required: true
+                                    },
+                                    nestedDoc: {
+                                        type: DataType.DOCUMENT,
+                                        default: [{
+                                            string: 'default'
+                                        }],
+                                        array: true,
+                                        schema: {
+                                            string: {
+                                                type: DataType.STRING
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     },
                     number: {
-                        type: DataType.Number,
-                        minimum: 10
+                        type: DataType.NUMBER,
+                        minimum: 10,
+                        default: 12
                     },
                     boolean: {
-                        type: DataType.Boolean,
+                        type: DataType.BOOLEAN,
                         required: true
                     },
                     date: {
-                        type: DataType.Date,
+                        type: DataType.DATE,
                         required: true
                     },
                     objectid: {
-                        type: DataType.ObjectID
+                        type: DataType.OBJECTID
                     },
                     doc: {
-                        type: DataType.Document,
+                        type: DataType.DOCUMENT,
                         schema: {
                             boolean: {
-                                type: DataType.Boolean
+                                type: DataType.BOOLEAN
                             }
                         }
                     },
                     string: {
-                        type: DataType.String
+                        type: DataType.STRING,
+                        default: 'ddd'
                     },
                     enum: {
-                        type: DataType.Enum,
+                        type: DataType.ENUM,
                         enum: ['x']
+                    },
+                    dateDefault: {
+                        type: DataType.DATE,
+                        default: new Date('2018-02-17')
+                    },
+                    setterString: {
+                        type: DataType.STRING,
+                        setter: (value) => value + 'aaa'
+                    },
+                    promiseSetterString: {
+                        type: DataType.STRING,
+                        setter: (value) => Promise.resolve(value + 'aaa')
+                    },
+                    setterDefaultString: {
+                        type: DataType.STRING,
+                        default: 'bbb',
+                        setter: (value) => value + 'aaa'
+                    },
+                    dateDefaultConvert: {
+                        type: DataType.DATE,
+                        default: '2018-02-17'
                     }
                 };
             }
@@ -868,44 +909,29 @@ describe.only('Mongo Module', function () {
         let newDoc;
         beforeEach(() => {
             model5 = new M5({ db });
-            newDoc = {
-                stringArray: ['d', 'c'],
-                enumArray: ['b', 1],
-                docArray: [
-                    { string: 'e', enum: 3, docInArray: { number: 1 } },
-                    { string: 'f', enum: 5, docInArray: { number: 2 } }
-                ],
-                number: 41,
-                boolean: true,
-                date: new Date(),
-                objectid: new ObjectID()
-            };
+            return model5.setDbValidationSchema();
         });
 
         afterEach(async () => {
             await model5.getCollection().drop();
         });
 
-        it('should set validation schema on new dbs', async () => {
-            await model5.setDbValidationSchema();
-            const collectionOptions = await model5.getCollection().options();
-            expect(collectionOptions).to.have.property('validator');
-            expect(collectionOptions).to.have.property('validationLevel', 'strict');
-            expect(collectionOptions).to.have.property('validationAction', 'error');
-        });
-
-        it('should set validation schema on existing dbs', async () => {
-            await db.createCollection(M5.getCollectionName());
-            await model5.setDbValidationSchema();
-            const collectionOptions = await model5.getCollection().options();
-            expect(collectionOptions).to.have.property('validator');
-            expect(collectionOptions).to.have.property('validationLevel', 'strict');
-            expect(collectionOptions).to.have.property('validationAction', 'error');
-        });
-
         describe('data validation', () => {
-            beforeEach(() => {
-                return model5.setDbValidationSchema();
+            it('should set validation schema on new dbs', async () => {
+                await model5.setDbValidationSchema();
+                const collectionOptions = await model5.getCollection().options();
+                expect(collectionOptions).to.have.property('validator');
+                expect(collectionOptions).to.have.property('validationLevel', 'strict');
+                expect(collectionOptions).to.have.property('validationAction', 'error');
+            });
+
+            it('should set validation schema on existing dbs', async () => {
+                await db.createCollection(M5.getCollectionName());
+                await model5.setDbValidationSchema();
+                const collectionOptions = await model5.getCollection().options();
+                expect(collectionOptions).to.have.property('validator');
+                expect(collectionOptions).to.have.property('validationLevel', 'strict');
+                expect(collectionOptions).to.have.property('validationAction', 'error');
             });
 
             it('should validate required fields', () => {
@@ -1208,21 +1234,207 @@ describe.only('Mongo Module', function () {
 
         });
 
-        it('should save data');
+        describe('save new', () => {
+            it('should add dateModified value on documents', async () => {
+                const data = {
+                    boolean: false,
+                    date: new Date()
+                };
+                await model5.save(data);
+                const result = await model5.getCollection().findOne();
 
-        it('should set default value');
+                expect(result).to.have.property('_id');
+                expect(result._id.toHexString()).to.equal(data._id.toHexString());
+                expect(result).to.have.property(GeneratedField.DATE_MODIFIED);
+                expect(result[GeneratedField.DATE_MODIFIED].getTime()).to.equal(data[GeneratedField.DATE_MODIFIED].getTime());
+            });
 
-        it('should use setter() function to set data');
+            it('should add _id and dataModified on all documents in arrays', async () => {
+                const data = {
+                    boolean: false,
+                    date: new Date(),
+                    docArray: [
+                        {
+                            enum: 3,
+                            docInArray: {
+                                number: 1,
+                                nestedDoc: [
+                                    {
+                                        string: 'aaa'
+                                    },
+                                    {
+                                        string: 'bbb'
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            enum: 5,
+                            docInArray: {
+                                number: 2,
+                                nestedDoc: [
+                                    {
+                                        string: 'ccc'
+                                    },
+                                    {
+                                        string: 'ddd'
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                };
 
-        it('should add dateModified value on documents');
+                await model5.save(data);
+                const result = await model5.getCollection().findOne();
 
-        it('should add _id and dataModified on all documents in arrays');
+                for (let i = 0; i < 2; i++) {
+                    expect(result.docArray[i]._id.toHexString()).to.equal(data.docArray[i]._id.toHexString());
+                    expect(
+                        result.docArray[i][GeneratedField.DATE_MODIFIED].getTime()
+                    ).to.equal(data.docArray[i][GeneratedField.DATE_MODIFIED].getTime());
 
-        it('should add, remove, set and add+remove scalar values in array');
+                    for (let j = 0; j < 2; j++) {
+                        expect(
+                            result.docArray[i].docInArray.nestedDoc[j]._id.toHexString()
+                        ).to.equal(data.docArray[i].docInArray.nestedDoc[j]._id.toHexString());
+                        expect(
+                            result.docArray[i].docInArray.nestedDoc[j][GeneratedField.DATE_MODIFIED].getTime()
+                        ).to.equal(data.docArray[i].docInArray.nestedDoc[j][GeneratedField.DATE_MODIFIED].getTime());
+                    }
+                }
+            });
 
-        it('should add, remove, set and add+remove documents in array and set correct dateModified values');
+            it('should set default value on Document type', async () => {
+                const data = {
+                    boolean: false,
+                    date: new Date()
+                };
+                await model5.save(data);
+                const result = await model5.getCollection().findOne();
 
-        it('should update selected documents in array and set correct dateModified values');
+                expect(result.docArray[0].enum).to.equal(5);
+                expect(result.docArray[0].docInArray.number).to.equal(8);
+                expect(result.docArray[0].docInArray.nestedDoc[0].string).to.equal('default');
+            });
+
+            it('should set default value on other types', async () => {
+                const data = {
+                    boolean: false,
+                    date: new Date()
+                };
+                await model5.save(data);
+                const result = await model5.getCollection().findOne();
+
+                expect(result.number).to.equal(12);
+                expect(result.dateDefault.getTime()).to.equal((new Date('2018-02-17')).getTime());
+                expect(result.string).to.equal('ddd');
+            });
+
+            it('should apply setter() function to new data and default data', async () => {
+                const data = {
+                    boolean: false,
+                    date: new Date(),
+                    setterString: 'xxx',
+                    promiseSetterString: 'yyy'
+                };
+                await model5.save(data);
+                const result = await model5.getCollection().findOne();
+
+                expect(result.setterString).to.equal('xxxaaa');
+                expect(result.promiseSetterString).to.equal('yyyaaa');
+                expect(result.setterDefaultString).to.equal('bbbaaa');
+            });
+
+            it('should convert number, date, boolean, _id values and convert default values', async () => {
+                const date = Date.parse('2018-02-17');
+                const objectid = (new ObjectID()).toHexString();
+                const _id = (new ObjectID()).toHexString();
+                const docArrayId = (new ObjectID()).toHexString();
+                const docArrayDocInArrayNestedDocId = (new ObjectID()).toHexString();
+                const data = {
+                    boolean: 'false',
+                    date,
+                    objectid,
+                    _id,
+                    docArray: [
+                        {
+                            _id: docArrayId,
+                            enum: 3,
+                            docInArray: {
+                                number: '5',
+                                nestedDoc: [
+                                    {
+                                        _id: docArrayDocInArrayNestedDocId,
+                                        string: '1'
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                };
+                await model5.save(data);
+                const result = await model5.getCollection().findOne();
+
+                expect(result.boolean).to.be.false;
+                expect(result.date.getTime()).to.equal(date);
+                expect(result.objectid.toHexString()).to.equal(objectid);
+                expect(result._id.toHexString()).to.equal(_id);
+                expect(result.docArray[0]._id.toHexString()).to.equal(docArrayId);
+                expect(result.docArray[0].docInArray.number).to.equal(5);
+                expect(result.docArray[0].docInArray.nestedDoc[0]._id.toHexString()).to.equal(docArrayDocInArrayNestedDocId);
+                expect(result.dateDefaultConvert.getTime()).to.equal(Date.parse('2018-02-17'));
+            });
+
+            it('should return native mongo insert result e.g. ops, result, inserted, insertedCount', async () => {
+                const data = {
+                    boolean: false,
+                    date: new Date()
+                };
+                const result = await model5.save(data);
+
+                expect(result).to.have.property('ops');
+                expect(result).to.have.property('result');
+                expect(result).to.have.property('insertedId', data._id);
+                expect(result).to.have.property('insertedCount', 1);
+            });
+
+            it('should bulk save (insert many)', async () => {
+                const data = [
+                    {
+                        boolean: false,
+                        date: new Date()
+                    },
+                    {
+                        boolean: true,
+                        date: '2017-02-17'
+                    }
+                ];
+                const result = await model5.save(data);
+                delete result.connection;
+
+                expect(result).to.have.property('ops');
+                expect(result).to.have.property('result');
+                expect(result).to.have.property('insertedIds');
+                expect(result).to.have.property('insertedCount', 2);
+            });
+        });
+
+        describe('update existing', () => {
+
+            it('should add, remove, set and add+remove scalar values in array');
+
+            it('should add, remove, set and add+remove documents in array and set correct dateModified values');
+
+            it('should update selected documents in array and set correct dateModified values');
+
+            it('should bulk update (update many)');
+
+            // should always change dateModified on the main doc when save
+            // should not change dateModified date in sub document array if data is no modified
+
+        });
+
     });
 
     describe('general functions', () => {
