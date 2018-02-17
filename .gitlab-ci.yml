@@ -3,6 +3,9 @@ image: node:8
 services:
   - mongo:3.6
 
+before_script:
+  - npm install
+
 stages:
   - test
 # - coverage
