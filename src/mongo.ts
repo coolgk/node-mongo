@@ -213,7 +213,7 @@ export class Mongo {
         });
     }
 
-    public async save (data: IDocument | IDocument[]): Promise<InsertOneWriteOpResult | InsertWriteOpResult> {
+    public async insert (data: IDocument | IDocument[]): Promise<InsertOneWriteOpResult | InsertWriteOpResult> {
         await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true });
         if (data instanceof Array) {
             return this._collection.insertMany(data);

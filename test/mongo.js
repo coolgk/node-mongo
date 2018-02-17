@@ -1240,7 +1240,7 @@ describe.only('Mongo Module', function () {
                     boolean: false,
                     date: new Date()
                 };
-                await model5.save(data);
+                await model5.insert(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result).to.have.property('_id');
@@ -1285,7 +1285,7 @@ describe.only('Mongo Module', function () {
                     ]
                 };
 
-                await model5.save(data);
+                await model5.insert(data);
                 const result = await model5.getCollection().findOne();
 
                 for (let i = 0; i < 2; i++) {
@@ -1310,7 +1310,7 @@ describe.only('Mongo Module', function () {
                     boolean: false,
                     date: new Date()
                 };
-                await model5.save(data);
+                await model5.insert(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result.docArray[0].enum).to.equal(5);
@@ -1323,7 +1323,7 @@ describe.only('Mongo Module', function () {
                     boolean: false,
                     date: new Date()
                 };
-                await model5.save(data);
+                await model5.insert(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result.number).to.equal(12);
@@ -1338,7 +1338,7 @@ describe.only('Mongo Module', function () {
                     setterString: 'xxx',
                     promiseSetterString: 'yyy'
                 };
-                await model5.save(data);
+                await model5.insert(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result.setterString).to.equal('xxxaaa');
@@ -1373,7 +1373,7 @@ describe.only('Mongo Module', function () {
                         }
                     ]
                 };
-                await model5.save(data);
+                await model5.insert(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result.boolean).to.be.false;
@@ -1391,7 +1391,7 @@ describe.only('Mongo Module', function () {
                     boolean: false,
                     date: new Date()
                 };
-                const result = await model5.save(data);
+                const result = await model5.insert(data);
 
                 expect(result).to.have.property('ops');
                 expect(result).to.have.property('result');
@@ -1410,7 +1410,7 @@ describe.only('Mongo Module', function () {
                         date: '2017-02-17'
                     }
                 ];
-                const result = await model5.save(data);
+                const result = await model5.insert(data);
                 delete result.connection;
 
                 expect(result).to.have.property('ops');
