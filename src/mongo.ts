@@ -110,6 +110,7 @@ export enum GeneratedField {
 }
 
 export class MongoError extends Error {}
+
 export class SchemaError extends Error {} // tslint:disable-line
 
 export class Mongo {
@@ -213,6 +214,12 @@ export class Mongo {
         });
     }
 
+    /**
+     * Insert Documents
+     * @param {(object | object[])} data - one document or multiple documents
+     * @returns {Promise<object>} - returns the return value of mongo's insertOne() or insertMany()
+     * @memberof Mongo
+     */
     public async insert (data: IDocument | IDocument[]): Promise<InsertOneWriteOpResult | InsertWriteOpResult> {
         await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true });
         if (data instanceof Array) {
@@ -220,6 +227,13 @@ export class Mongo {
         }
         return this._collection.insertOne(data);
     }
+
+    // public async update (data: IDocument): Promise<{}> {
+    //     if (!data._id) {
+    //         throw new MongoError('Update Failed: missing "_id" in document');
+    //     }
+
+    // }
 
     /* tslint:disable */
     /**

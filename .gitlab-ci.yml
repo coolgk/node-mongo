@@ -1,0 +1,24 @@
+image: node:8
+
+services:
+  - mongo:3.6
+
+stages:
+  - test
+  # - coverage
+
+unittest:
+  stage: test
+  script:
+    - npm test
+  only:
+    - master
+    - develop
+
+sendcoverage:
+  stage: coverage
+  script:
+    - npm run coverage
+  only:
+    - master
+    - develop
