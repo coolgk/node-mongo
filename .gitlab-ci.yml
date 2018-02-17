@@ -7,7 +7,7 @@ stages:
   - test
 # - coverage
 
-unittest:
+job_test:
   stage: test
   script:
     - npm test
@@ -15,10 +15,10 @@ unittest:
     - master
     - develop
 
-sendcoverage:
-  stage: coverage
-  script:
-    - npm run coverage
-  only:
-    - master
-    - develop
+# sendcoverage:
+#   stage: coverage
+#   script:
+#     - npm run coverage
+#   only:
+#     - master
+#     - develop
