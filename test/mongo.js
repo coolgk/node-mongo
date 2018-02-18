@@ -1602,10 +1602,17 @@ describe.only('Mongo Module', function () {
         });
 
         it('should update data normally including replacing an entire array with a new value', async () => {
-            const data = await model6.getCollection().findOne();
+            let data = await model6.getCollection().findOne();
 // console.log( require('util').inspect(data, false, null, true) );
-            model6.update(data);
+data.j = [1,2];
+// data = {
+//     _id: data._id,
+//     j: [1,2]
+// }
+// console.log(data);
 
+            const result = await model6.update(data, {returnOriginal: false});
+console.log( require('util').inspect(result, false, null, true) );
         });
 
         it('should add, remove, set and add+remove scalar and object id values in array');
@@ -1614,8 +1621,10 @@ describe.only('Mongo Module', function () {
 
         it('should update selected documents in array and set correct dateModified values');
 
-        it('should not update if _id value is an invalid object id');
+        it('should not update if document _id value is an invalid object id');
         // near line 919: row._id = row._id ? this.getObjectID(row._id) || row._id : new ObjectID();
+
+        it('should not update if object id value is invalid in array e.g. [ id1, id2, ... ]');
 
         it('should bulk update (update many)');
 

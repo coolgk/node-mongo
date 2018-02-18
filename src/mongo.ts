@@ -1,4 +1,7 @@
-import { Db, ObjectID, Cursor, Collection, FindOneOptions, InsertOneWriteOpResult, InsertWriteOpResult } from 'mongodb';
+import {
+    Db, ObjectID, Cursor, Collection, FindOneOptions,
+    InsertOneWriteOpResult, InsertWriteOpResult, FindOneAndReplaceOption, FindAndModifyWriteOpResultObject
+} from 'mongodb';
 import { toArray } from '@coolgk/array';
 
 // model field data types
@@ -107,19 +110,22 @@ interface IJsonSchema {
 
 interface IUpdateQueryParent {
     arrayFilters: IQuery[];
-    fields: string[];
+    // fields: string[];
     path: string[];
 }
 
 interface IUpdateQueries {
-    [fields: string]: {
-        action: {
-            $set?: IQuery;
-            $push?: IQuery;
-            $pull?: IQuery;
-        };
-        arrayFilters: IQuery;
-    }[];
+    [action: string]: {
+        values: IQuery;
+        arrayFilters: IQuery[];
+    };
+}
+
+export interface IUpdateResults {
+    [action: string]: any;
+    error?: {
+        [action: string]: Error;
+    };
 }
 
 export enum GeneratedField {
@@ -176,7 +182,10 @@ export class Mongo {
      * @memberof Mongo
      */
     public getObjectID (id: ObjectID | string): ObjectID | undefined {
-        return ObjectID.isValid(id) ? new ObjectID(id) : undefined;
+        // https://jira.mongodb.org/browse/NODE-1146
+        // 19 Feb 2018, mongo bug ObjectID.isValid(1) returns true
+        // have to cast id to string first before this bug is fixed
+        return ObjectID.isValid(String(id)) ? new ObjectID(id) : undefined;
     }
 
     /**
@@ -253,7 +262,7 @@ export class Mongo {
         return this._collection.insertMany(data);
     }
 
-    public async update (data: IDocument): Promise<void> {
+    public async update (data: IDocument, options: FindOneAndReplaceOption = {}): Promise<IUpdateResults> {
         if (!data._id) {
             throw new MongoError('Update Failed: missing "_id" in document');
         }
@@ -263,14 +272,36 @@ export class Mongo {
             { type: DataType.DOCUMENT, schema: this._schema }
         );
 
-        console.log( require('util').inspect(queries, false, null, true) );
-    }
+        const results: IUpdateResults = {};
+        for (const action in queries) {
+            try {
+                results[action] = await this._collection.findOneAndUpdate(
+                    {
+                        _id: this.getObjectID(data._id)
+                    },
+                    {
+                        [action]: queries[action].values
+                    },
+                    {
+                        ...options,
+                        arrayFilters: queries[action].arrayFilters
+                    } as any // 19 Feb 2018, types for mongo node driver does not support arrayFilters
+                );
+            } catch (error) {
+                if (!results.error) {
+                    results.error = {};
+                }
+                results.error[action] = error;
+            }
+        }
 
+        return results;
+    }
 
     private async _getUpdateQuery (
         data: any,
         dataSchema: IDataSchema,
-        parent: IUpdateQueryParent = { arrayFilters: [], fields: [], path: [] },
+        parent: IUpdateQueryParent = { arrayFilters: [], path: [] }, // fields: [],
         queries: IUpdateQueries = {}
     ): Promise<IUpdateQueries> {
 
@@ -334,12 +365,12 @@ export class Mongo {
                             { ...dataSchema, array: false },
                             {
                                 arrayFilters: parent.arrayFilters.concat({
-                                    [row._id]: {
+                                    ['i' + row._id]: {
                                         _id: this.getObjectID(row._id)
                                     }
                                 }),
-                                fields: parent.fields,
-                                path: parent.path.concat(`$[${row._id}]`)
+                                // fields: parent.fields,
+                                path: parent.path.concat(`$[i${row._id}]`)
                             },
                             queries
                         );
@@ -396,7 +427,7 @@ export class Mongo {
                                 dataSchema.schema[field],
                                 {
                                     arrayFilters: parent.arrayFilters,
-                                    fields: parent.fields.concat(field),
+                                    // fields: parent.fields.concat(field),
                                     path: parent.path.concat(field)
                                 },
                                 queries
@@ -420,7 +451,7 @@ export class Mongo {
         data: any,
         dataSchema: IDataSchema
     ): Promise<void> {
-        const parentFields = parent.fields.join('.');
+        // const parentFields = parent.fields.join('.');
         const parentPath = parent.path.join('.');
         // if (!queries[parentFields]) {
         //     queries[parentFields] = [];
@@ -436,7 +467,7 @@ export class Mongo {
         //     arrayFilters: parent.arrayFilters
         // });
 
-        if (!queries[parentFields]) {
+        /* if (!queries[parentFields]) {
             queries[parentFields] = {};
         }
 
@@ -462,21 +493,43 @@ export class Mongo {
             ...parent.arrayFilters.filter((filter) => {
                 for (const id in filter) {
                     if (currentFiltersById[id]) {
-                        return true;
+                        return false;
                     }
                 }
-                return false;
+                return true;
+            })
+        ); */
+
+        if (!queries[action]) {
+            queries[action] = {
+                values: {},
+                arrayFilters: []
+            };
+        }
+
+        await this._transform(data, dataSchema);
+
+        Object.assign(queries[action].values, {
+            [parentPath]: data
+        });
+
+        const currentFiltersById: { [id: string]: number } = {};
+        queries[action].arrayFilters.forEach((filter) => {
+            for (const id in filter) {
+                currentFiltersById[id.substr(1)] = 1;
+            }
+        });
+
+        queries[action].arrayFilters.push(
+            ...parent.arrayFilters.filter((filter) => {
+                for (const id in filter) {
+                    if (currentFiltersById[id.substr(1)]) {
+                        return false;
+                    }
+                }
+                return true;
             })
         );
-
-        // .push({
-        //     action: {
-        //         [action]: {
-        //             [parentPath]: data
-        //         }
-        //     },
-        //     arrayFilters: parent.arrayFilters
-        // });
     }
 
     /* tslint:disable */
