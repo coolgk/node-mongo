@@ -105,6 +105,23 @@ interface IJsonSchema {
     pattern?: string;
 }
 
+interface IUpdateQueryParent {
+    arrayFilters: IQuery[];
+    fields: string[];
+    path: string[];
+}
+
+interface IUpdateQueries {
+    [fields: string]: {
+        action: {
+            $set?: IQuery;
+            $push?: IQuery;
+            $pull?: IQuery;
+        };
+        arrayFilters: IQuery;
+    }[];
+}
+
 export enum GeneratedField {
     DATE_MODIFIED = '_dateModified'
 }
@@ -215,25 +232,252 @@ export class Mongo {
     }
 
     /**
-     * Insert Documents
-     * @param {(object | object[])} data - one document or multiple documents
-     * @returns {Promise<object>} - returns the return value of mongo's insertOne() or insertMany()
+     * Insert One Document
+     * @param {object} data - one document
+     * @returns {Promise<object>} - returns the return value of mongo's insertMany()
      * @memberof Mongo
      */
-    public async insert (data: IDocument | IDocument[]): Promise<InsertOneWriteOpResult | InsertWriteOpResult> {
-        await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true });
-        if (data instanceof Array) {
-            return this._collection.insertMany(data);
-        }
+    public async insertOne (data: IDocument): Promise<InsertOneWriteOpResult> {
+        await this._transform(data, { type: DataType.DOCUMENT, schema: this._schema });
         return this._collection.insertOne(data);
     }
 
-    // public async update (data: IDocument): Promise<{}> {
-    //     if (!data._id) {
-    //         throw new MongoError('Update Failed: missing "_id" in document');
-    //     }
+    /**
+     * Insert Mulitple Documents
+     * @param {object[]} data - multiple documents
+     * @returns {Promise<object>} - returns the return value of mongo's insertMany()
+     * @memberof Mongo
+     */
+    public async insertMany (data: IDocument[]): Promise<InsertWriteOpResult> {
+        await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true });
+        return this._collection.insertMany(data);
+    }
 
-    // }
+    public async update (data: IDocument): Promise<void> {
+        if (!data._id) {
+            throw new MongoError('Update Failed: missing "_id" in document');
+        }
+
+        const queries = await this._getUpdateQuery(
+            data,
+            { type: DataType.DOCUMENT, schema: this._schema }
+        );
+
+        console.log( require('util').inspect(queries, false, null, true) );
+    }
+
+
+    private async _getUpdateQuery (
+        data: any,
+        dataSchema: IDataSchema,
+        parent: IUpdateQueryParent = { arrayFilters: [], fields: [], path: [] },
+        queries: IUpdateQueries = {}
+    ): Promise<IUpdateQueries> {
+
+        if (!dataSchema) { // _id field and auto generated fields (e.g.dateCreated etc) do not have schema values.
+            return queries;
+        }
+
+        // const parentFields = parent.fields.join('.');
+        // const parentPath = parent.path.join('.');
+        // if (!queries[parentFields]) {
+        //     queries[parentFields] = [];
+        // }
+
+        if (dataSchema.array) {
+            if (data.$set) {
+                const dataToSet = toArray(data.$set);
+                await this._setQuery(queries, parent, '$set', dataToSet, dataSchema);
+                return queries;
+            }
+
+            if (dataSchema.type === DataType.DOCUMENT) {
+                if (data.$delete) {
+                    await this._setQuery(
+                        queries,
+                        parent,
+                        '$pull',
+                        {
+                            _id: {
+                                $in: data.$delete // toArray(data.$delete).map((id) => this.getObjectID(id))
+                            }
+                        },
+                        {
+                            type: DataType.DOCUMENT,
+                            schema: {
+                                _id: {
+                                    type: DataType.DOCUMENT,
+                                    schema: {
+                                        $in: {
+                                            type: DataType.OBJECTID,
+                                            array: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    );
+                    return queries;
+                }
+
+                const dataToInsert: IDocument[] = [];
+                toArray(data).forEach(async (row: IDocument, index: number) => {
+                    // if (row._id.getTimestamp().getTime() === row[GeneratedField.DATE_MODIFIED].getTime()) {
+                    //     newData.push(row);
+
+                    //     // this._setQuery(queries, parent, '$push', row);
+                    // } else {
+                    if (row._id) {
+                        // update, find in db
+                        await this._getUpdateQuery(
+                            row,
+                            { ...dataSchema, array: false },
+                            {
+                                arrayFilters: parent.arrayFilters.concat({
+                                    [row._id]: {
+                                        _id: this.getObjectID(row._id)
+                                    }
+                                }),
+                                fields: parent.fields,
+                                path: parent.path.concat(`$[${row._id}]`)
+                            },
+                            queries
+                        );
+                    } else {
+                        dataToInsert.push(row);
+                    }
+                });
+                if (dataToInsert.length) {
+                    await this._setQuery(
+                        queries,
+                        parent,
+                        '$push',
+                        {
+                            $each: dataToInsert
+                        },
+                        {
+                            type: DataType.DOCUMENT,
+                            schema: {
+                                $each: dataSchema
+                            }
+                        }
+                    );
+                }
+            } else {
+                const arrayData = toArray(data);
+                await this._transform(arrayData, dataSchema);
+                await this._setQuery(
+                    queries,
+                    parent,
+                    '$push',
+                    {
+                        $each: arrayData
+                    },
+                    {
+                        type: DataType.DOCUMENT,
+                        schema: {
+                            $each: dataSchema
+                        }
+                    }
+                );
+            }
+        } else {
+            switch (dataSchema.type) {
+                case DataType.DOCUMENT:
+                    if (!dataSchema.schema) {
+                        throw new SchemaError(
+                            `Undefined "schema" property on "${dataSchema.type}" type in ${JSON.stringify(dataSchema)}`
+                        );
+                    }
+                    if (data instanceof Object) {
+                        for (const field in data) {
+                            await this._getUpdateQuery(
+                                data[field],
+                                dataSchema.schema[field],
+                                {
+                                    arrayFilters: parent.arrayFilters,
+                                    fields: parent.fields.concat(field),
+                                    path: parent.path.concat(field)
+                                },
+                                queries
+                            );
+                        }
+                    }
+                    break;
+                default:
+                    await this._setQuery(queries, parent, '$set', data, dataSchema);
+                    break;
+            }
+        }
+
+        return queries;
+    }
+
+    private async _setQuery (
+        queries: IUpdateQueries,
+        parent: IUpdateQueryParent,
+        action: string,
+        data: any,
+        dataSchema: IDataSchema
+    ): Promise<void> {
+        const parentFields = parent.fields.join('.');
+        const parentPath = parent.path.join('.');
+        // if (!queries[parentFields]) {
+        //     queries[parentFields] = [];
+        // }
+
+        // await this._transform(data, dataSchema);
+        // queries[parentFields].push({
+        //     action: {
+        //         [action]: {
+        //             [parentPath]: data
+        //         }
+        //     },
+        //     arrayFilters: parent.arrayFilters
+        // });
+
+        if (!queries[parentFields]) {
+            queries[parentFields] = {};
+        }
+
+        if (!queries[parentFields][action]) {
+            queries[parentFields][action] = {
+                values: [],
+                arrayFilters: []
+            };
+        }
+
+        queries[parentFields][action].values.push({
+            [parentPath]: data
+        });
+
+        const currentFiltersById: { [id: string]: number } = {};
+        queries[parentFields][action].arrayFilters.forEach((filter) => {
+            for (const id in filter) {
+                currentFiltersById[id] = 1;
+            }
+        });
+
+        queries[parentFields][action].arrayFilters.push(
+            ...parent.arrayFilters.filter((filter) => {
+                for (const id in filter) {
+                    if (currentFiltersById[id]) {
+                        return true;
+                    }
+                }
+                return false;
+            })
+        );
+
+        // .push({
+        //     action: {
+        //         [action]: {
+        //             [parentPath]: data
+        //         }
+        //     },
+        //     arrayFilters: parent.arrayFilters
+        // });
+    }
 
     /* tslint:disable */
     /**
@@ -418,7 +662,7 @@ export class Mongo {
         objectIdInData: IObjectIdInData,
         referencePointer?: IReferencePointer
     ): void {
-        if (dataSchema) { // _id field and auto generated fields (e.g.dateCreated etc) do not have fieldConfig values.
+        if (dataSchema) { // _id field and auto generated fields (e.g.dateCreated etc) do not have schema values.
             if (dataSchema.array) {
                 toArray(data).forEach((row, index) => {
                     this._findObjectIdInData(
@@ -672,14 +916,25 @@ export class Mongo {
         return jsonSchema;
     }
 
-    // add modified date in the main doc and docs in arrays, add _id in docs in arrays
-    // set default value (if defualt !== undefined, default could be 0)
-    // apply setter
-    // convert valid numbers (!isNaN()) to number '123' => 123
-    // convert string boolean to boolean 'false' or '0'  => false and cast other values to boolean
-    // convert object id and _id string to ObjectID object
-    // convert valid date string to Date object
-    private async _transform (data: any, dataSchema: IDataSchema, referencePointer?: IReferencePointer): Promise<void> {
+    /**
+     * add modified date in the main doc and docs in arrays, add _id in docs in arrays
+     * set default value (if defualt !== undefined, default could be 0)
+     * apply setter
+     * convert valid numbers (!isNaN()) to number '123' => 123
+     * convert string boolean to boolean 'false' or '0'  => false and cast other values to boolean
+     * convert object id and _id string to ObjectID object
+     * convert valid date string to Date object
+     * @ignore
+     * @param data - document data to save
+     * @param dataSchema - schema of the current data
+     * @param referencePointer - variable used internally in this method
+     */
+    private async _transform (
+        data: any,
+        dataSchema: IDataSchema,
+        // generateId: boolean = true,
+        referencePointer?: IReferencePointer
+    ): Promise<void> {
         if (!dataSchema) {
             return;
         }
@@ -694,20 +949,27 @@ export class Mongo {
         }
 
         if (dataSchema.array) {
-            data.forEach((row: any, index: number) => {
+            toArray(data).forEach(async (row, index) => {
                 if (dataSchema.type === DataType.DOCUMENT) {
-                    if (!row[GeneratedField.DATE_MODIFIED]) {
-                        row[GeneratedField.DATE_MODIFIED] = new Date();
-                    }
-                    // assign new id if not exist and convert string id to ObjectId()
-                    row._id = row._id ? this.getObjectID(row._id) : new ObjectID();
+                    // const newId = new ObjectID();
+                    // create the modified time based on ObjectId time.
+                    // In update() insert is based on (modified time == id time) and update (modified time != id time)
+                    // row[GeneratedField.DATE_MODIFIED] = newId.getTimestamp();
+
+                    row[GeneratedField.DATE_MODIFIED] = new Date();
+                    row._id = row._id ? this.getObjectID(row._id) || row._id : new ObjectID();
                 }
-                this._transform(row, { ...dataSchema, array: false }, { parent: data, field: index });
+                await this._transform(
+                    row,
+                    { ...dataSchema, array: false },
+                    // true,
+                    { parent: data, field: index }
+                );
             });
         } else {
-            if (dataSchema.setter && referencePointer) {
+            if (dataSchema.setter) {
                 data = await dataSchema.setter(data);
-                (referencePointer.parent as any)[referencePointer.field] = data;
+                this._setTransformedValue(data, referencePointer);
             }
 
             switch (dataSchema.type) {
@@ -719,32 +981,42 @@ export class Mongo {
                     }
                     if (data instanceof Object) {
                         for (const field in dataSchema.schema) {
-                            this._transform(data[field], dataSchema.schema[field], { parent: data, field });
+                            await this._transform(
+                                data[field],
+                                dataSchema.schema[field],
+                                // true,
+                                { parent: data, field });
                         }
                     }
                     break;
                 case DataType.NUMBER:
                     if (!isNaN(data)) {
-                        this._setTransformValue (+data, referencePointer);
+                        this._setTransformedValue(+data, referencePointer);
                     }
                     break;
                 case DataType.DATE:
                     const date = new Date(data);
                     if (!isNaN(date.getTime())) {
-                        this._setTransformValue (date, referencePointer);
+                        this._setTransformedValue(date, referencePointer);
                     }
                     break;
                 case DataType.BOOLEAN:
-                    this._setTransformValue ((data === 'false' || data === '0') ? false : !!data, referencePointer);
+                    this._setTransformedValue((data === 'false' || data === '0') ? false : !!data, referencePointer);
                     break;
                 case DataType.OBJECTID:
-                    this._setTransformValue (this.getObjectID(data), referencePointer);
+                    this._setTransformedValue(this.getObjectID(data) || data, referencePointer);
                     break;
             }
         }
     }
 
-    private _setTransformValue (newValue: any, referencePointer?: IReferencePointer): void {
+    /**
+     * attach transformed value to reference pointer
+     * @ignore
+     * @param newValue - new value
+     * @param referencePointer - reference pointer
+     */
+    private _setTransformedValue (newValue: any, referencePointer?: IReferencePointer): void {
         if (referencePointer) {
             (referencePointer.parent as any)[referencePointer.field] = newValue;
         }

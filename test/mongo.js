@@ -766,7 +766,7 @@ describe.only('Mongo Module', function () {
         // it('should call getter functions?');
     });
 
-    describe('save & update', () => {
+    describe('save & validation', () => {
 
         class M5 extends Mongo {
             static getSchema () {
@@ -888,25 +888,7 @@ describe.only('Mongo Module', function () {
             }
         }
 
-        /* const example = {
-            a: {
-                b: [
-                    {
-                        c: []
-                    }
-                ]
-            },
-            b: [
-                {
-                    c: {
-                        d: []
-                    }
-                }
-            ]
-        }; */
-
         let model5;
-        let newDoc;
         beforeEach(() => {
             model5 = new M5({ db });
             return model5.setDbValidationSchema();
@@ -1240,7 +1222,7 @@ describe.only('Mongo Module', function () {
                     boolean: false,
                     date: new Date()
                 };
-                await model5.insert(data);
+                await model5.insertOne(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result).to.have.property('_id');
@@ -1285,7 +1267,7 @@ describe.only('Mongo Module', function () {
                     ]
                 };
 
-                await model5.insert(data);
+                await model5.insertOne(data);
                 const result = await model5.getCollection().findOne();
 
                 for (let i = 0; i < 2; i++) {
@@ -1310,7 +1292,7 @@ describe.only('Mongo Module', function () {
                     boolean: false,
                     date: new Date()
                 };
-                await model5.insert(data);
+                await model5.insertOne(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result.docArray[0].enum).to.equal(5);
@@ -1323,7 +1305,7 @@ describe.only('Mongo Module', function () {
                     boolean: false,
                     date: new Date()
                 };
-                await model5.insert(data);
+                await model5.insertOne(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result.number).to.equal(12);
@@ -1338,7 +1320,7 @@ describe.only('Mongo Module', function () {
                     setterString: 'xxx',
                     promiseSetterString: 'yyy'
                 };
-                await model5.insert(data);
+                await model5.insertOne(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result.setterString).to.equal('xxxaaa');
@@ -1373,7 +1355,7 @@ describe.only('Mongo Module', function () {
                         }
                     ]
                 };
-                await model5.insert(data);
+                await model5.insertOne(data);
                 const result = await model5.getCollection().findOne();
 
                 expect(result.boolean).to.be.false;
@@ -1391,12 +1373,41 @@ describe.only('Mongo Module', function () {
                     boolean: false,
                     date: new Date()
                 };
-                const result = await model5.insert(data);
+                const result = await model5.insertOne(data);
 
                 expect(result).to.have.property('ops');
                 expect(result).to.have.property('result');
                 expect(result).to.have.property('insertedId', data._id);
                 expect(result).to.have.property('insertedCount', 1);
+            });
+
+            it('should not save invalid object id as undefined for non-required field', async () => {
+                const data = {
+                    boolean: false,
+                    date: new Date(),
+                    objectid: 'null'
+                };
+                // const result = await model5.insertOne(data);
+
+                return Promise.all([
+                    expect(model5.insertOne(data)).to.be.rejectedWith(writeError),
+                    expect(
+                        model5.insertOne(
+                            Object.assign({}, data, {
+                                _id: undefined,
+                                objectid: undefined
+                            })
+                        )
+                    ).to.be.fulfilled,
+                    expect(
+                        model5.insertOne(
+                            Object.assign({}, data, {
+                                _id: undefined,
+                                objectid: new ObjectID()
+                            })
+                        )
+                    ).to.be.fulfilled
+                ]);
             });
 
             it('should bulk save (insert many)', async () => {
@@ -1410,7 +1421,7 @@ describe.only('Mongo Module', function () {
                         date: '2017-02-17'
                     }
                 ];
-                const result = await model5.insert(data);
+                const result = await model5.insertMany(data);
                 delete result.connection;
 
                 expect(result).to.have.property('ops');
@@ -1420,20 +1431,196 @@ describe.only('Mongo Module', function () {
             });
         });
 
-        describe('update existing', () => {
+    });
 
-            it('should add, remove, set and add+remove scalar values in array');
+    describe.only('update existing', () => {
 
-            it('should add, remove, set and add+remove documents in array and set correct dateModified values');
+        let M6;
+        let model6;
+        let objectid1 = new ObjectID();
+        let objectid2 = new ObjectID();
 
-            it('should update selected documents in array and set correct dateModified values');
+        before(() => {
+            class Model6 extends Mongo {
+                static getCollectionName () {
+                    return 'M6Collection';
+                }
+                static getSchema () {
+                    return {
+                        a: {
+                            type: DataType.DOCUMENT,
+                            array: true,
+                            schema: {
+                                b: {
+                                    type: DataType.DOCUMENT,
+                                    array: true,
+                                    schema: {
+                                        c: {
+                                            type: DataType.DOCUMENT,
+                                            schema: {
+                                                d: {
+                                                    type: DataType.DOCUMENT,
+                                                    array: true,
+                                                    schema: {
+                                                        e: {
+                                                            type: DataType.STRING
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        k: {
+                                            type: DataType.STRING
+                                        }
+                                    }
+                                },
+                                f: {
+                                    type: DataType.DOCUMENT,
+                                    schema: {
+                                        g: {
+                                            type: DataType.DOCUMENT,
+                                            array: true,
+                                            schema: {
+                                                h: {
+                                                    type: DataType.STRING
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        i: {
+                            type: DataType.STRING
+                        },
+                        j: {
+                            type: DataType.OBJECTID,
+                            array: true
+                        }
+                    };
+                }
+            }
+            M6 = Model6;
+        });
 
-            it('should bulk update (update many)');
+        beforeEach(async () => {
+            model6 = new M6({ db });
+            await model6.insertOne({
+                a: [
+                    {
+                        b: [
+                            {
+                                c: {
+                                    d: [
+                                        {
+                                            e: 'e'
+                                        },
+                                        {
+                                            e: 'e2'
+                                        }
+                                    ]
+                                },
+                                k: 'k'
+                            },
+                            {
+                                c: {
+                                    d: [
+                                        {
+                                            e: 'e3'
+                                        },
+                                        {
+                                            e: 'e4'
+                                        }
+                                    ]
+                                },
+                                k: 'k2'
+                            }
+                        ],
+                        f: {
+                            g: [
+                                {
+                                    h: 'h1'
+                                },
+                                {
+                                    h: 'h2'
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        b: [
+                            {
+                                c: {
+                                    d: [
+                                        {
+                                            e: 'e5'
+                                        },
+                                        {
+                                            e: 'e6'
+                                        }
+                                    ]
+                                },
+                                k: 'k3'
+                            },
+                            {
+                                c: {
+                                    d: [
+                                        {
+                                            e: 'e7'
+                                        },
+                                        {
+                                            e: 'e8'
+                                        }
+                                    ]
+                                },
+                                k: 'k4'
+                            }
+                        ],
+                        f: {
+                            g: [
+                                {
+                                    h: 'h3'
+                                },
+                                {
+                                    h: 'h4'
+                                }
+                            ]
+                        }
+                    }
+                ],
+                i: 'i',
+                j: [
+                    objectid1,
+                    objectid2
+                ]
+            });
+            await model6.setDbValidationSchema();
+        });
 
-            // should always change dateModified on the main doc when save
-            // should not change dateModified date in sub document array if data is no modified
+        afterEach(async () => {
+            await model6.getCollection().drop();
+        });
+
+        it('should update data normally including replacing an entire array with a new value', async () => {
+            const data = await model6.getCollection().findOne();
+// console.log( require('util').inspect(data, false, null, true) );
+            model6.update(data);
 
         });
+
+        it('should add, remove, set and add+remove scalar and object id values in array');
+
+        it('should add, remove, set and add+remove documents in array and set correct dateModified values');
+
+        it('should update selected documents in array and set correct dateModified values');
+
+        it('should not update if _id value is an invalid object id');
+        // near line 919: row._id = row._id ? this.getObjectID(row._id) || row._id : new ObjectID();
+
+        it('should bulk update (update many)');
+
+        // should always change dateModified on the main doc when save
+        // should not change dateModified date in sub document array if data is no modified
 
     });
 
@@ -1441,4 +1628,10 @@ describe.only('Mongo Module', function () {
 
     });
 
+});
+
+
+process.on('unhandledRejection', (error) => {
+    // your custom error logger
+    console.error(error); // tslint:disable-line
 });
