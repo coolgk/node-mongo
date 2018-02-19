@@ -1,5 +1,5 @@
 import {
-    Db, ObjectID, Cursor, Collection, FindOneOptions,
+    Db, ObjectID, Cursor, Collection, FindOneOptions, CollectionInsertOneOptions, CollectionInsertManyOptions,
     InsertOneWriteOpResult, InsertWriteOpResult, FindOneAndReplaceOption, FindAndModifyWriteOpResultObject
 } from 'mongodb';
 import { toArray } from '@coolgk/array';
@@ -175,9 +175,8 @@ export class Mongo {
 
     /* tslint:disable */
     /**
-     * Creates an instance of Mongo.
      * @param {object} options
-     * @param {object} options.db - a Db instance from mongo node client e.g. v3.x MongoClient.connect(url, (err, client) => { const db = client.db(dbName); ... }) v2.x MongoClient.connect(url, (err, db) => { ... })
+     * @param {object} options.db - a Db instance from mongo node client e.g. the db variable in v3.x MongoClient.connect(url, (err, client) => { const db = client.db(dbName); ... }) v2.x MongoClient.connect(url, (err, db) => { ... })
      * @memberof Mongo
      */
     /* tslint:enable */
@@ -189,7 +188,7 @@ export class Mongo {
 
     /**
      * @param {(object | string)} id - a string or an instance of ObjectID
-     * @returns {(object | undefined)} - an ObjectID or undefined if "id" is not an valid ObjectID string
+     * @returns {(object | undefined)} - an ObjectID or undefined if "id" is not a valid ObjectID string
      * @memberof Mongo
      */
     public getObjectID (id: ObjectID | string): ObjectID | undefined {
@@ -207,7 +206,7 @@ export class Mongo {
     }
 
     /**
-     * @returns {object} - returns the db instance previously passed into the constructor
+     * @returns {object} - returns the db instance passed into the constructor
      * @memberof Mongo
      */
     public getDb (): Db {
@@ -224,7 +223,7 @@ export class Mongo {
 
     /**
      * set validation schema in mongo
-     * @returns {Promise<*>} - a promise returned from mongo native commands (createCollection or collMod)
+     * @returns {Promise<*>} - a promise returned from mongo's createCollection or collMod commands
      * @memberof Mongo
      */
     public async setDbValidationSchema (): Promise<any> {
@@ -254,26 +253,41 @@ export class Mongo {
     /**
      * Insert One Document
      * @param {object} data - one document
-     * @returns {Promise<object>} - returns the return value of mongo's insertMany()
+     * @param {object} options - options of mongo's insertOne() function
+     * @returns {Promise<object>} - returns the return value of mongo's insertOne() function
      * @memberof Mongo
      */
-    public async insertOne (data: IDocument): Promise<InsertOneWriteOpResult> {
+    public async insertOne (data: IDocument, options?: CollectionInsertOneOptions): Promise<InsertOneWriteOpResult> {
         // pass as array so it transforms _id and _dateModified value on the main doc
         await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true });
-        return this._collection.insertOne(data);
+        return this._collection.insertOne(data, options);
     }
 
     /**
      * Insert Mulitple Documents
      * @param {object[]} data - multiple documents
+     * @param {object} options - options of mongo's insertMany() function
      * @returns {Promise<object>} - returns the return value of mongo's insertMany()
      * @memberof Mongo
      */
-    public async insertMany (data: IDocument[]): Promise<InsertWriteOpResult> {
+    public async insertMany (data: IDocument[], options?: CollectionInsertManyOptions): Promise<InsertWriteOpResult> {
         await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true });
-        return this._collection.insertMany(data);
+        return this._collection.insertMany(data, options);
     }
 
+    /* tslint:disable */
+    /**
+     * Update a single document.
+     * updateOne() updates data in three steps: set, add, delete.
+     * This method is not atomic if more than one type of actions are executed e.g. set+add set+delete or set+add+delete etc.
+     * updateOne() is atomic if only one type of actions is executed e.g. only adding new values
+     * @param {object} data - one document, must contains a _id field
+     * @param {object} [options={}] - options of mongo's findOneAndUpdate() function plus the one(s) below
+     * @param {boolean} [options.revertOnError=false] - restore db values back to the original values before the update. This action is NOT atomic. If an error happens in the set, add, delete processes, the data is stored as at where the action stopped. e.g. if an error happens in the delete step, data set and added in the previous steps are stored in db. To stop this from happening, the "revertOnerror" option reverts the document back to the status before the updateOne() is executed. This action is not atomic. If the document is updated by a different source while updateOne() is still processing data , the "revertOnError" option will overwrite the changes made from by the other source.
+     * @returns {Promise<object>}
+     * @memberof Mongo
+     */
+    /* tslint:enable */
     public async updateOne (data: IDocument, options: IUpdateOption = {}): Promise<IUpdateResults> {
         if (!data._id) {
             throw new MongoError('Update Failed: missing "_id" in document');
@@ -368,7 +382,7 @@ export class Mongo {
 
     /* tslint:disable */
     /**
-     * Attach referenced collection data to a query result. Note: filters in join are not supported if this method is used directly on a query result i.e. not using find(). Use find() if you want to filter result by the data in referenced collections
+     * Attach referenced collection data to a query result. Note: filters in join are not supported if this method is used directly on a query result i.e. not called from find(). Use find() if you want to filter result by the data in referenced collections
      * @param {(Cursor | object[])} data - a mongo query result
      * @param {object[]} joins - query for joining other collections. format: { on: string | string[], projection?: { [fieldname]: 1 | 0 }, join?: { on: ..., projection?: ..., join?: ... }[] }
      * @returns {(Promise<Cursor | object[]>)}
@@ -892,6 +906,17 @@ export class Mongo {
         }
     }
 
+    /**
+     * generate update queries
+     * @ignore
+     * @private
+     * @param {*} data - document data
+     * @param {object} dataSchema - schema of the data
+     * @param {object} [parent] - query filters and field paths in parent fields, this is this method's internal variable
+     * @param {object} [queries] - this method's internal variable
+     * @returns {Promise<object>}
+     * @memberof Mongo
+     */
     private async _getUpdateQuery (
         data: any,
         dataSchema: IDataSchema,
@@ -1016,6 +1041,17 @@ export class Mongo {
         return queries;
     }
 
+    /**
+     * set query values
+     * @ignore
+     * @private
+     * @param {object} queries
+     * @param {object} parent
+     * @param {string} action
+     * @param {*} data
+     * @returns {Promise<void>}
+     * @memberof Mongo
+     */
     private async _setUpdateQuery (
         queries: IUpdateQueries,
         parent: IUpdateQueryParent,
