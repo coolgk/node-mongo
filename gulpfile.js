@@ -18,6 +18,7 @@ const codeHeader = `/*!
  * @version ${packageJsonFile.version}
  * @link ${packageJsonFile.homepage}
  * @license ${packageJsonFile.license}
+ * @author ${packageJsonFile.author}
  */
 
 `;
