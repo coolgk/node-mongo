@@ -1939,7 +1939,26 @@ describe.only('Mongo Module', function () {
 
         it('should not update and should not add new if document _id value is an invalid object id', async () => {
             // near line 919: row._id = row._id ? this.getObjectID(row._id) || row._id : new ObjectID();
+            const oldData = await model6.getCollection().findOne();
+            const data = {
+                _id: model6Data._id,
+                a: [
+                    {
+                        _id: 234,
+                        f: {
+                            g: [
+                                {
+                                    h: 'hh5'
+                                }
+                            ]
+                        }
+                    }
+                ]
+            };
+            await model6.updateOne(data, { returnOriginal: false });
+            const newData = await model6.getCollection().findOne();
 
+            expect(newData.a).to.deep.equal(oldData.a);
         });
 
         it('should bulk update (update many)');
