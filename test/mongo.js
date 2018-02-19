@@ -1437,6 +1437,7 @@ describe.only('Mongo Module', function () {
 
         let M6;
         let model6;
+        let model6Data;
         let objectid1 = new ObjectID();
         let objectid2 = new ObjectID();
 
@@ -1496,6 +1497,10 @@ describe.only('Mongo Module', function () {
                         j: {
                             type: DataType.OBJECTID,
                             array: true
+                        },
+                        l: {
+                            type: DataType.STRING,
+                            array: true
                         }
                     };
                 }
@@ -1505,7 +1510,7 @@ describe.only('Mongo Module', function () {
 
         beforeEach(async () => {
             model6 = new M6({ db });
-            await model6.insertOne({
+            const data = {
                 a: [
                     {
                         b: [
@@ -1592,8 +1597,13 @@ describe.only('Mongo Module', function () {
                 j: [
                     objectid1,
                     objectid2
+                ],
+                l: [
+                    'a', 'b', 'c'
                 ]
-            });
+            };
+            await model6.insertOne(data);
+            model6Data = data;
             await model6.setDbValidationSchema();
         });
 
@@ -1602,88 +1612,67 @@ describe.only('Mongo Module', function () {
         });
 
         it('should update data normally including replacing an entire array with a new value', async () => {
-            let data = await model6.getCollection().findOne();
+            const oldData = await model6.getCollection().findOne();
 
-data.j = {
-    $delete: data.j[0]
-};
+            const h = 'hhhh';
+            const id = new ObjectID();
+            const data = {
+                _id: oldData._id,
+                a: {
+                    $set: [
+                        {
+                            f: {
+                                g: [
+                                    {
+                                        h: h
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                i: 'i2',
+                j: {
+                    $set: [
+                        id
+                    ]
+                }
+            };
+            const result = await model6.updateOne(data, { returnOriginal: true });
 
-data.i = 'iiiii';
+            let newData = await model6.getCollection().findOne();
 
-data.a[1].f.g = [
-    ...data.a[1].f.g,
-    {
-        h: 'h5'
-    }
-];
-
-data.a[1].b[1].c.d = {
-    $delete: [data.a[1].b[1].c.d[1]._id]
-};
-
-data.a[0].b[1].c.d = {
-    $set: [{
-        e: 'e.x'
-    }]
-};
-
-// test add new item and modifeid date
-// data = {
-//     _id: data._id,
-//     a: [
-//         {
-//             f: {
-//                 g: [
-//                     {
-//                         h: 'hh5'
-//                     }
-//                 ]
-//             }
-//         }
-//     ]
-// };
-
-// test add array item to nested array and modified date
-// data = {
-//     _id: data._id,
-//     a: [
-//         {
-//             _id: data.a[1]._id,
-//             f: {
-//                 g: [
-//                     {
-//                         h: 'hh5'
-//                     }
-//                 ]
-//             }
-//         }
-//     ]
-// };
-
-// console.log( require('util').inspect(data, false, null, true) );
-await new Promise((resolve) => {
-    setTimeout(async () => {
-        const result = await model6.update(data, { returnOriginal: false }); // , projection: { 'a.f.g': 1 }
-        // delete result.raw;
-    console.log( require('util').inspect(result.value, false, null, true) );
-    // console.log(result.value.a.length);
-    resolve()
-    }, 1000)
-})
-
-
-
+            expect(oldData).to.deep.equal(result.value);
+            expect(newData.i).to.equal('i2');
+            expect(newData.j).to.deep.equal([id]);
+            expect(newData.a).to.have.lengthOf(1);
+            expect(newData.a[0].f.g).to.have.lengthOf(1);
+            expect(newData.a[0].f.g[0].h).to.equal(h);
         });
 
-        it('should update dateModified on the main doc');
+        it('should add, remove, set and add+remove scalar and object id values in array', async () => {
+            const data = {
+                _id: model6Data._id,
+                j: {
+                    $delete: model6Data.j[1]
+                },
+                l: {
+                    $delete: 'b'
+                }
+            };
+            const result = await model6.updateOne(data, { returnOriginal: false });
+            let newData = await model6.getCollection().findOne();
 
-        it('should add, remove, set and add+remove scalar and object id values in array');
+            expect(result.value).to.deep.equal(newData);
+        });
+
+        it('should update dateModified on the main doc', async () => {
+
+        });
 
         it('should add, remove, set and add+remove documents in array and set correct dateModified values');
 
         it('should update selected documents in array and set correct dateModified values');
-
-
 
         it('should not update if document _id value is an invalid object id');
         // near line 919: row._id = row._id ? this.getObjectID(row._id) || row._id : new ObjectID();
@@ -1694,6 +1683,79 @@ await new Promise((resolve) => {
 
         // should always change dateModified on the main doc when save
         // should not change dateModified date in sub document array if data is no modified
+
+        it.skip('--------------', async () => {
+            let data = await model6.getCollection().findOne();
+
+            data.j = {
+                $delete: data.j[0]
+            };
+
+            data.i = 'iiiii';
+
+            data.a[1].f.g = [
+                ...data.a[1].f.g,
+                {
+                    h: 'h5'
+                }
+            ];
+
+            data.a[1].b[1].c.d = {
+                $delete: [data.a[1].b[1].c.d[1]._id]
+            };
+
+            data.a[0].b[1].c.d = {
+                $set: [{
+                    e: 'e.x'
+                }]
+            };
+
+            // test add new item and modifeid date
+            // data = {
+            //     _id: data._id,
+            //     a: [
+            //         {
+            //             f: {
+            //                 g: [
+            //                     {
+            //                         h: 'hh5'
+            //                     }
+            //                 ]
+            //             }
+            //         }
+            //     ]
+            // };
+
+            // test add array item to nested array and modified date
+            // data = {
+            //     _id: data._id,
+            //     a: [
+            //         {
+            //             _id: data.a[1]._id,
+            //             f: {
+            //                 g: [
+            //                     {
+            //                         h: 'hh5'
+            //                     }
+            //                 ]
+            //             }
+            //         }
+            //     ]
+            // };
+
+            // console.log( require('util').inspect(data, false, null, true) );
+            await new Promise((resolve) => {
+                setTimeout(async () => {
+                    const result = await model6.updateOne(data, { returnOriginal: false }); // , projection: { 'a.f.g': 1 }
+                    // delete result.raw;
+                console.log( require('util').inspect(result.value, false, null, true) );
+                // console.log(result.value.a.length);
+                resolve()
+                }, 1000)
+            })
+
+        });
+
 
     });
 

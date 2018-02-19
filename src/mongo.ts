@@ -269,7 +269,7 @@ export class Mongo {
         return this._collection.insertMany(data);
     }
 
-    public async update (data: IDocument, options: FindOneAndReplaceOption = {}): Promise<IUpdateResults> {
+    public async updateOne (data: IDocument, options: FindOneAndReplaceOption = {}): Promise<IUpdateResults> {
         if (!data._id) {
             throw new MongoError('Update Failed: missing "_id" in document');
         }
