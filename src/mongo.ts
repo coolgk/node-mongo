@@ -130,8 +130,13 @@ export interface IUpdateResults {
         [action: string]: any;
     };
     error?: {
-        [action: string]: Error;
+        [action: string]: any;
     };
+}
+
+export interface IUpdateOption extends FindOneAndReplaceOption {
+    revertOnError?: boolean;
+    // noTransform?: boolean;
 }
 
 export enum GeneratedField {
@@ -269,14 +274,14 @@ export class Mongo {
         return this._collection.insertMany(data);
     }
 
-    public async updateOne (data: IDocument, options: FindOneAndReplaceOption = {}): Promise<IUpdateResults> {
+    public async updateOne (data: IDocument, options: IUpdateOption = {}): Promise<IUpdateResults> {
         if (!data._id) {
             throw new MongoError('Update Failed: missing "_id" in document');
         }
 
-        // data._id = this.getObjectID(data._id);
-        // data[GeneratedField.DATE_MODIFIED] = new Date();
+        // if (!options.noTransform) {
         await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true }, false);
+        // }
 
         const queries = await this._getUpdateQuery(
             data,
@@ -287,14 +292,15 @@ export class Mongo {
             raw: {}
         };
 
-        // for (const action in queries) {
+        const dataBeforeUpdate = options.revertOnError ? await this._collection.findOne({_id: data._id}) : false;
+
         // force run queries in the order of set push pull
         // dateModified always triggers a $set action,
         // if this $set runs last, the return value would not be atomic for a $pull or $push only action
         // @todo: if there are errors in $push or $pull, $set will still run for setting the modified date. modified date should not change if errors happen
         for (const action of ['$set', '$push', '$pull']) {
             if (!queries[action]) {
-                break;
+                continue;
             }
 
             try {
@@ -323,6 +329,17 @@ export class Mongo {
                     results.error = {};
                 }
                 results.error[action] = error;
+            }
+        }
+
+        if (results.error && options.revertOnError) {
+            try {
+                const revertResult = await this._collection.findOneAndReplace(
+                    { _id: dataBeforeUpdate._id },
+                    dataBeforeUpdate
+                );
+            } catch (error) {
+                results.error.$revert = error;
             }
         }
 
@@ -837,7 +854,8 @@ export class Mongo {
                                 data[field],
                                 dataSchema.schema[field],
                                 generateId,
-                                { parent: data, field });
+                                { parent: data, field }
+                            );
                         }
                     }
                     break;
@@ -892,44 +910,34 @@ export class Mongo {
                     queries,
                     parent,
                     '$set',
-                    dataToSet,
-                    // dataSchema
+                    dataToSet
                 );
                 return queries;
             }
 
-            if (dataSchema.type === DataType.DOCUMENT) {
-                if (data.$delete) {
-                    await this._setUpdateQuery(
-                        queries,
-                        parent,
-                        '$pull',
-                        {
-                            _id: {
-                                $in: toArray(data.$delete) // toArray(data.$delete).map((id) => this.getObjectID(id))
-                            }
-                        },
-                        // {
-                        //     type: DataType.DOCUMENT,
-                        //     schema: {
-                        //         _id: {
-                        //             type: DataType.DOCUMENT,
-                        //             schema: {
-                        //                 $in: {
-                        //                     type: DataType.OBJECTID,
-                        //                     array: true
-                        //                 }
-                        //             }
-                        //         }
-                        //     }
-                        // }
-                    );
+            if (data.$delete) {
+                await this._setUpdateQuery(
+                    queries,
+                    parent,
+                    '$pull',
+                    dataSchema.type === DataType.DOCUMENT ? {
+                        _id: {
+                            $in: toArray(data.$delete).map((id) => this.getObjectID(id))
+                        }
+                    } : {
+                        $in: toArray(data.$delete)
+                    }
+                );
+                // data = data.$update || [];
+                if (!data.$update) {
                     return queries;
                 }
+            }
 
+            data = toArray(data.$update || data);
+
+            if (dataSchema.type === DataType.DOCUMENT) {
                 const dataToInsert: IDocument[] = [];
-                // toArray(data).forEach(async (row: IDocument, index: number) => {
-                data = toArray(data);
                 for (let index = data.length - 1; index >= 0; index--) {
                     if (data[index]._id) {
                         // update, find in db
@@ -938,18 +946,15 @@ export class Mongo {
                             { ...dataSchema, array: false },
                             {
                                 arrayFilters: parent.arrayFilters.concat({
-                                    // ['i' + data[index]._id]: {
-                                    //     _id: this.getObjectID(data[index]._id)
-                                    // }
                                     [`i${data[index]._id}._id`]: this.getObjectID(data[index]._id)
                                 }),
-                                // fields: parent.fields,
                                 path: parent.path.concat(`$[i${data[index]._id}]`)
                             },
                             queries
                         );
                     } else {
-                        data[index]._id = new ObjectID();
+                        // data[index]._id = new ObjectID();
+                        await this._transform([data[index]], dataSchema);
                         dataToInsert.push(data[index]);
                     }
                 }
@@ -960,51 +965,17 @@ export class Mongo {
                         '$push',
                         {
                             $each: dataToInsert
-                        },
-                        // {
-                        //     type: DataType.DOCUMENT,
-                        //     schema: {
-                        //         $each: dataSchema
-                        //     }
-                        // }
+                        }
                     );
                 }
             } else {
-                if (data.$delete) {
-                    await this._setUpdateQuery(
-                        queries,
-                        parent,
-                        '$pull',
-                        {
-                            $in: toArray(data.$delete)
-                        },
-                        // {
-                        //     type: DataType.DOCUMENT,
-                        //     schema: {
-                        //         $in: {
-                        //             type: dataSchema.type,
-                        //             array: true
-                        //         }
-                        //     }
-                        // }
-                    );
-                    return queries;
-                }
-
-                const arrayData = toArray(data);
                 await this._setUpdateQuery(
                     queries,
                     parent,
                     '$push',
                     {
-                        $each: arrayData
-                    },
-                    // {
-                    //     type: DataType.DOCUMENT,
-                    //     schema: {
-                    //         $each: dataSchema
-                    //     }
-                    // }
+                        $each: data
+                    }
                 );
             }
         } else {
@@ -1024,7 +995,6 @@ export class Mongo {
                                 } : dataSchema.schema[field],
                                 {
                                     arrayFilters: parent.arrayFilters,
-                                    // fields: parent.fields.concat(field),
                                     path: parent.path.concat(field)
                                 },
                                 queries
@@ -1037,8 +1007,7 @@ export class Mongo {
                         queries,
                         parent,
                         '$set',
-                        data,
-                        // dataSchema
+                        data
                     );
                     break;
             }
@@ -1051,8 +1020,7 @@ export class Mongo {
         queries: IUpdateQueries,
         parent: IUpdateQueryParent,
         action: string,
-        data: any,
-        // dataSchema: IDataSchema
+        data: any
     ): Promise<void> {
         const parentPath = parent.path.join('.');
 
@@ -1062,8 +1030,6 @@ export class Mongo {
                 arrayFilters: []
             };
         }
-
-        // await this._transform(data, dataSchema);
 
         Object.assign(queries[action].values, {
             [parentPath]: data
