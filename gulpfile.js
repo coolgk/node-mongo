@@ -2,7 +2,7 @@
 
 const gulp = require('gulp');
 const ts = require('gulp-typescript');
-const sourcemaps = require('gulp-sourcemaps');
+// const sourcemaps = require('gulp-sourcemaps');
 const fs = require('fs');
 // const path = require('path');
 // const yaml = require('js-yaml');
@@ -13,45 +13,58 @@ const header = require('gulp-header');
 
 const childProcess = require('child_process');
 
-
-const packageJson = require('./package.json');
-
-const distFolder = 'dist';
-const packageFolder = 'package';
+const packageJsonFile = require('./package.json');
 
 const codeHeader = `/*!
- * @package ${packageJson.name}
- * @version ${packageJson.version}
- * @link ${packageJson.homepage}
- * @license ${packageJson.license}
+ * @package ${packageJsonFile.name}
+ * @version ${packageJsonFile.version}
+ * @link ${packageJsonFile.homepage}
+ * @license ${packageJsonFile.license}
  */
 
 `;
 
-gulp.task('package', generatePackage);
+gulp.task('package', () => generatePackage({
+    distFolder: 'dist',
+    packageFolder: 'package',
+    sourceFolder: 'src',
+    fileHeader: codeHeader,
+    excludedFiles: ['index', 'test', 'globals.d', 'examples'],
+    sourceReadme: './README.BASE.md',
+    targetReadme: './README.md',
+    packageJson: packageJsonFile,
+    packageJsonOverride: {
+        // 'name': '@coolgk/mvc',
+        'devDependencies': undefined,
+        'scripts': undefined,
+        'pre-commit': undefined
+    }
+}));
 
 gulp.task('publish', ['package'], () => {
-    return execCommand(`cd ${packageFolder} && npm publish --access=public`);
+    return execCommand(`cd package && npm publish --access=public`);
 });
 
-async function generatePackage () {
+async function generatePackage ({
+    distFolder, packageFolder, fileHeader, excludedFiles, sourceReadme, targetReadme, packageJson, sourceFolder, packageJsonOverride
+}) {
     // del /package folder
     await del([`${distFolder}/**`, `${packageFolder}/**`]);
     // create /package folder
     await createFolder(packageFolder);
     // generate md for jsdoc from all .ts files
-    const jsDocs = await generateJsDocMd();
+    const jsDocs = await generateJsDocMd(sourceFolder, distFolder, fileHeader, excludedFiles);
     // recreate root README.md with README.BASE.md + jsdoc
     // cp README.md to /package
-    await createReadme(jsDocs);
+    await createReadme(jsDocs, sourceReadme, targetReadme, packageFolder, packageJson);
     // generate index.ts
-    await generateIndexFile();
+    await generateIndexFile(sourceFolder, excludedFiles);
     // compile ts
-    await compileTs();
+    await compileTs(sourceFolder, distFolder, fileHeader);
     // cp complied .js and d.ts files from dist/ to package/
-    await copyFilesToPackage();
+    await copyFilesToPackage(distFolder, packageFolder);
     // cp simplified package.json to package/
-    await createPackageJson();
+    await createPackageJson(packageFolder, packageJson, packageJsonOverride);
 }
 
 function createFolder (path) {
@@ -63,12 +76,12 @@ function createFolder (path) {
     });
 }
 
-function compileTs (dev) {
-    let tsResult = gulp.src('src/*.ts');
+function compileTs (sourceFolder, distFolder, fileHeader, dev) {
+    let tsResult = gulp.src(sourceFolder + '/*.ts');
 
-    if (dev) {
-        tsResult = tsResult.pipe(sourcemaps.init());
-    }
+    // if (dev) {
+    //     tsResult = tsResult.pipe(sourcemaps.init());
+    // }
 
     tsResult = tsResult.pipe(
         ts.createProject('./tsconfig.json', { removeComments: !dev })()
@@ -76,21 +89,21 @@ function compileTs (dev) {
 
     const promises = [];
 
-    if (dev) {
-        tsResult.js = tsResult.js
-            .pipe(sourcemaps.write())
-            .pipe(header('require("source-map-support").install();' + "\n")); // eslint-disable-line
-    } else {
-        tsResult.js = tsResult.js.pipe(header(codeHeader));
-        promises.push(
-            new Promise((resolve) => {
-                tsResult.dts
-                    .pipe(header(codeHeader))
-                    .pipe(gulp.dest(distFolder))
-                    .on('finish', () => resolve());
-            })
-        );
-    }
+    // if (dev) {
+    //     tsResult.js = tsResult.js
+    //         .pipe(sourcemaps.write())
+    //         .pipe(header('require("source-map-support").install();' + "\n")); // eslint-disable-line
+    // } else {
+    tsResult.js = tsResult.js.pipe(header(fileHeader));
+    promises.push(
+        new Promise((resolve) => {
+            tsResult.dts
+                .pipe(header(fileHeader))
+                .pipe(gulp.dest(distFolder))
+                .on('finish', () => resolve());
+        })
+    );
+    // }
 
     promises.push(
         new Promise((resolve) => {
@@ -101,8 +114,8 @@ function compileTs (dev) {
     return Promise.all(promises);
 }
 
-async function generateJsDocMd () {
-    await compileTs(true);
+async function generateJsDocMd (sourceFolder, distFolder, fileHeader, excludedFiles) {
+    await compileTs(sourceFolder, distFolder, fileHeader, true);
 
     return new Promise((resolve) => {
         fs.readdir('src', async (error, files) => {
@@ -110,7 +123,7 @@ async function generateJsDocMd () {
 
             for (const file of files) {
                 const name = file.replace('.ts', '');
-                if (!['index', 'test', 'globals.d', 'examples'].includes(name)) {
+                if (!excludedFiles.includes(name)) {
                     jsDocs += await jsdoc2md.render({ files: `${distFolder}/${name}.js` });
                 }
             }
@@ -120,14 +133,18 @@ async function generateJsDocMd () {
     });
 }
 
-function createReadme (jsDoc) {
+function createReadme (jsDoc, sourceReadme, targetReadme, packageFolder, packageJson) {
     return new Promise((resolve, reject) => {
-        fs.readFile('./README.BASE.md', 'utf8', (error, data) => {
+        fs.readFile(sourceReadme, 'utf8', (error, data) => {
             if (error) reject(error);
-            const bugLine = `Report bugs here: [${packageJson.bugs.url}](${packageJson.bugs.url})`;
-            fs.writeFile(`./README.md`, `${data}\n\n${bugLine}\n\n${jsDoc}`, 'utf8', (error) => {
+            let content = data;
+            if (packageJson.bugs && packageJson.bugs.url) {
+                content += `\n\nReport bugs here: [${packageJson.bugs.url}](${packageJson.bugs.url})\n\n`;
+            }
+            content += jsDoc;
+            fs.writeFile(targetReadme, content, 'utf8', (error) => {
                 if (error) return reject(error);
-                fs.createReadStream(`./README.md`).pipe(
+                fs.createReadStream(targetReadme).pipe(
                     fs.createWriteStream(`${packageFolder}/README.md`)
                 ).on('finish', () => resolve()).on('error', reject);
             });
@@ -135,13 +152,13 @@ function createReadme (jsDoc) {
     });
 }
 
-function generateIndexFile () {
+function generateIndexFile (sourceFolder, excludedFiles) {
     return new Promise((resolve) => {
-        const writeStream = fs.createWriteStream('src/index.ts');
-        fs.readdir('src', (error, files) => {
+        const writeStream = fs.createWriteStream(sourceFolder + '/index.ts');
+        fs.readdir(sourceFolder, (error, files) => {
             files.forEach((file) => {
                 const filename = file.replace('.ts', '');
-                if (!['index', 'test', 'globals.d', 'examples'].includes(filename)) {
+                if (!excludedFiles.includes(filename)) {
                     writeStream.write(`import * as _${filename} from './${filename}';\n`);
                     writeStream.write(`export const ${filename} = _${filename}; // tslint:disable-line\n`);
                 }
@@ -152,7 +169,7 @@ function generateIndexFile () {
     });
 }
 
-function copyFilesToPackage () {
+function copyFilesToPackage (distFolder, packageFolder) {
     return new Promise((resolve, reject) => {
         fs.readdir(distFolder, (error, files) => {
             const promises = [];
@@ -168,19 +185,14 @@ function copyFilesToPackage () {
     });
 }
 
-function createPackageJson () {
+function createPackageJson (packageFolder, packageJson, packageJsonOverride) {
     return new Promise((resolve, reject) => {
         fs.writeFile(
             `${packageFolder}/package.json`,
             JSON.stringify(
                 Object.assign(
                     packageJson,
-                    {
-                        'name': '@coolgk/mvc',
-                        'devDependencies': undefined,
-                        'scripts': undefined,
-                        'pre-commit': undefined
-                    }
+                    packageJsonOverride
                 )
             ),
             'utf8',
