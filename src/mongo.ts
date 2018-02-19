@@ -122,7 +122,13 @@ interface IUpdateQueries {
 }
 
 export interface IUpdateResults {
-    [action: string]: any;
+    // [action: string]: any;
+    value?: {
+        [field: string]: any
+    };
+    raw: {
+        [action: string]: any;
+    };
     error?: {
         [action: string]: Error;
     };
@@ -247,7 +253,8 @@ export class Mongo {
      * @memberof Mongo
      */
     public async insertOne (data: IDocument): Promise<InsertOneWriteOpResult> {
-        await this._transform(data, { type: DataType.DOCUMENT, schema: this._schema });
+        // pass as array so it transforms _id and _dateModified value on the main doc
+        await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true });
         return this._collection.insertOne(data);
     }
 
@@ -267,17 +274,33 @@ export class Mongo {
             throw new MongoError('Update Failed: missing "_id" in document');
         }
 
+        // data._id = this.getObjectID(data._id);
+        // data[GeneratedField.DATE_MODIFIED] = new Date();
+        await this._transform(toArray(data), { type: DataType.DOCUMENT, schema: this._schema, array: true }, false);
+
         const queries = await this._getUpdateQuery(
             data,
             { type: DataType.DOCUMENT, schema: this._schema }
         );
 
-        const results: IUpdateResults = {};
-        for (const action in queries) {
+        const results: IUpdateResults = {
+            raw: {}
+        };
+
+        // for (const action in queries) {
+        // force run queries in the order of set push pull
+        // dateModified always triggers a $set action,
+        // if this $set runs last, the return value would not be atomic for a $pull or $push only action
+        // @todo: if there are errors in $push or $pull, $set will still run for setting the modified date. modified date should not change if errors happen
+        for (const action of ['$set', '$push', '$pull']) {
+            if (!queries[action]) {
+                break;
+            }
+
             try {
-                results[action] = await this._collection.findOneAndUpdate(
+                results.raw[action] = await this._collection.findOneAndUpdate(
                     {
-                        _id: this.getObjectID(data._id)
+                        _id: data._id
                     },
                     {
                         [action]: queries[action].values
@@ -287,6 +310,14 @@ export class Mongo {
                         arrayFilters: queries[action].arrayFilters
                     } as any // 19 Feb 2018, types for mongo node driver does not support arrayFilters
                 );
+                // get the first result
+                if (options.returnOriginal) {
+                    if (!results.value) {
+                        results.value = results.raw[action].value;
+                    }
+                } else {
+                    results.value = results.raw[action].value;
+                }
             } catch (error) {
                 if (!results.error) {
                     results.error = {};
@@ -296,240 +327,6 @@ export class Mongo {
         }
 
         return results;
-    }
-
-    private async _getUpdateQuery (
-        data: any,
-        dataSchema: IDataSchema,
-        parent: IUpdateQueryParent = { arrayFilters: [], path: [] }, // fields: [],
-        queries: IUpdateQueries = {}
-    ): Promise<IUpdateQueries> {
-
-        if (!dataSchema) { // _id field and auto generated fields (e.g.dateCreated etc) do not have schema values.
-            return queries;
-        }
-
-        // const parentFields = parent.fields.join('.');
-        // const parentPath = parent.path.join('.');
-        // if (!queries[parentFields]) {
-        //     queries[parentFields] = [];
-        // }
-
-        if (dataSchema.array) {
-            if (data.$set) {
-                const dataToSet = toArray(data.$set);
-                await this._setQuery(queries, parent, '$set', dataToSet, dataSchema);
-                return queries;
-            }
-
-            if (dataSchema.type === DataType.DOCUMENT) {
-                if (data.$delete) {
-                    await this._setQuery(
-                        queries,
-                        parent,
-                        '$pull',
-                        {
-                            _id: {
-                                $in: data.$delete // toArray(data.$delete).map((id) => this.getObjectID(id))
-                            }
-                        },
-                        {
-                            type: DataType.DOCUMENT,
-                            schema: {
-                                _id: {
-                                    type: DataType.DOCUMENT,
-                                    schema: {
-                                        $in: {
-                                            type: DataType.OBJECTID,
-                                            array: true
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    );
-                    return queries;
-                }
-
-                const dataToInsert: IDocument[] = [];
-                toArray(data).forEach(async (row: IDocument, index: number) => {
-                    // if (row._id.getTimestamp().getTime() === row[GeneratedField.DATE_MODIFIED].getTime()) {
-                    //     newData.push(row);
-
-                    //     // this._setQuery(queries, parent, '$push', row);
-                    // } else {
-                    if (row._id) {
-                        // update, find in db
-                        await this._getUpdateQuery(
-                            row,
-                            { ...dataSchema, array: false },
-                            {
-                                arrayFilters: parent.arrayFilters.concat({
-                                    ['i' + row._id]: {
-                                        _id: this.getObjectID(row._id)
-                                    }
-                                }),
-                                // fields: parent.fields,
-                                path: parent.path.concat(`$[i${row._id}]`)
-                            },
-                            queries
-                        );
-                    } else {
-                        dataToInsert.push(row);
-                    }
-                });
-                if (dataToInsert.length) {
-                    await this._setQuery(
-                        queries,
-                        parent,
-                        '$push',
-                        {
-                            $each: dataToInsert
-                        },
-                        {
-                            type: DataType.DOCUMENT,
-                            schema: {
-                                $each: dataSchema
-                            }
-                        }
-                    );
-                }
-            } else {
-                const arrayData = toArray(data);
-                await this._transform(arrayData, dataSchema);
-                await this._setQuery(
-                    queries,
-                    parent,
-                    '$push',
-                    {
-                        $each: arrayData
-                    },
-                    {
-                        type: DataType.DOCUMENT,
-                        schema: {
-                            $each: dataSchema
-                        }
-                    }
-                );
-            }
-        } else {
-            switch (dataSchema.type) {
-                case DataType.DOCUMENT:
-                    if (!dataSchema.schema) {
-                        throw new SchemaError(
-                            `Undefined "schema" property on "${dataSchema.type}" type in ${JSON.stringify(dataSchema)}`
-                        );
-                    }
-                    if (data instanceof Object) {
-                        for (const field in data) {
-                            await this._getUpdateQuery(
-                                data[field],
-                                dataSchema.schema[field],
-                                {
-                                    arrayFilters: parent.arrayFilters,
-                                    // fields: parent.fields.concat(field),
-                                    path: parent.path.concat(field)
-                                },
-                                queries
-                            );
-                        }
-                    }
-                    break;
-                default:
-                    await this._setQuery(queries, parent, '$set', data, dataSchema);
-                    break;
-            }
-        }
-
-        return queries;
-    }
-
-    private async _setQuery (
-        queries: IUpdateQueries,
-        parent: IUpdateQueryParent,
-        action: string,
-        data: any,
-        dataSchema: IDataSchema
-    ): Promise<void> {
-        // const parentFields = parent.fields.join('.');
-        const parentPath = parent.path.join('.');
-        // if (!queries[parentFields]) {
-        //     queries[parentFields] = [];
-        // }
-
-        // await this._transform(data, dataSchema);
-        // queries[parentFields].push({
-        //     action: {
-        //         [action]: {
-        //             [parentPath]: data
-        //         }
-        //     },
-        //     arrayFilters: parent.arrayFilters
-        // });
-
-        /* if (!queries[parentFields]) {
-            queries[parentFields] = {};
-        }
-
-        if (!queries[parentFields][action]) {
-            queries[parentFields][action] = {
-                values: [],
-                arrayFilters: []
-            };
-        }
-
-        queries[parentFields][action].values.push({
-            [parentPath]: data
-        });
-
-        const currentFiltersById: { [id: string]: number } = {};
-        queries[parentFields][action].arrayFilters.forEach((filter) => {
-            for (const id in filter) {
-                currentFiltersById[id] = 1;
-            }
-        });
-
-        queries[parentFields][action].arrayFilters.push(
-            ...parent.arrayFilters.filter((filter) => {
-                for (const id in filter) {
-                    if (currentFiltersById[id]) {
-                        return false;
-                    }
-                }
-                return true;
-            })
-        ); */
-
-        if (!queries[action]) {
-            queries[action] = {
-                values: {},
-                arrayFilters: []
-            };
-        }
-
-        await this._transform(data, dataSchema);
-
-        Object.assign(queries[action].values, {
-            [parentPath]: data
-        });
-
-        const currentFiltersById: { [id: string]: number } = {};
-        queries[action].arrayFilters.forEach((filter) => {
-            for (const id in filter) {
-                currentFiltersById[id.substr(1)] = 1;
-            }
-        });
-
-        queries[action].arrayFilters.push(
-            ...parent.arrayFilters.filter((filter) => {
-                for (const id in filter) {
-                    if (currentFiltersById[id.substr(1)]) {
-                        return false;
-                    }
-                }
-                return true;
-            })
-        );
     }
 
     /* tslint:disable */
@@ -985,7 +782,7 @@ export class Mongo {
     private async _transform (
         data: any,
         dataSchema: IDataSchema,
-        // generateId: boolean = true,
+        generateId: boolean = true,
         referencePointer?: IReferencePointer
     ): Promise<void> {
         if (!dataSchema) {
@@ -1002,23 +799,25 @@ export class Mongo {
         }
 
         if (dataSchema.array) {
-            toArray(data).forEach(async (row, index) => {
+            // toArray(data).forEach(async (row, index) => {
+            data = toArray(data);
+            for (let index = data.length - 1; index >= 0; index--) {
                 if (dataSchema.type === DataType.DOCUMENT) {
-                    // const newId = new ObjectID();
-                    // create the modified time based on ObjectId time.
-                    // In update() insert is based on (modified time == id time) and update (modified time != id time)
-                    // row[GeneratedField.DATE_MODIFIED] = newId.getTimestamp();
-
-                    row[GeneratedField.DATE_MODIFIED] = new Date();
-                    row._id = row._id ? this.getObjectID(row._id) || row._id : new ObjectID();
+                    data[index][GeneratedField.DATE_MODIFIED] = new Date();
+                    // data[index]._id = data[index]._id ? this.getObjectID(data[index]._id) || data[index]._id : new ObjectID();
+                    if (data[index]._id) {
+                        data[index]._id = this.getObjectID(data[index]._id) || data[index]._id;
+                    } else if (generateId) {
+                        data[index]._id = new ObjectID();
+                    }
                 }
                 await this._transform(
-                    row,
+                    data[index],
                     { ...dataSchema, array: false },
-                    // true,
+                    generateId,
                     { parent: data, field: index }
                 );
-            });
+            }
         } else {
             if (dataSchema.setter) {
                 data = await dataSchema.setter(data);
@@ -1037,7 +836,7 @@ export class Mongo {
                             await this._transform(
                                 data[field],
                                 dataSchema.schema[field],
-                                // true,
+                                generateId,
                                 { parent: data, field });
                         }
                     }
@@ -1074,6 +873,221 @@ export class Mongo {
             (referencePointer.parent as any)[referencePointer.field] = newValue;
         }
     }
+
+    private async _getUpdateQuery (
+        data: any,
+        dataSchema: IDataSchema,
+        parent: IUpdateQueryParent = { arrayFilters: [], path: [] }, // fields: [],
+        queries: IUpdateQueries = {}
+    ): Promise<IUpdateQueries> {
+
+        if (!dataSchema) { // _id field and auto generated fields (e.g.dateCreated etc) do not have schema values.
+            return queries;
+        }
+
+        if (dataSchema.array) {
+            if (data.$set) {
+                const dataToSet = toArray(data.$set);
+                await this._setUpdateQuery(
+                    queries,
+                    parent,
+                    '$set',
+                    dataToSet,
+                    // dataSchema
+                );
+                return queries;
+            }
+
+            if (dataSchema.type === DataType.DOCUMENT) {
+                if (data.$delete) {
+                    await this._setUpdateQuery(
+                        queries,
+                        parent,
+                        '$pull',
+                        {
+                            _id: {
+                                $in: toArray(data.$delete) // toArray(data.$delete).map((id) => this.getObjectID(id))
+                            }
+                        },
+                        // {
+                        //     type: DataType.DOCUMENT,
+                        //     schema: {
+                        //         _id: {
+                        //             type: DataType.DOCUMENT,
+                        //             schema: {
+                        //                 $in: {
+                        //                     type: DataType.OBJECTID,
+                        //                     array: true
+                        //                 }
+                        //             }
+                        //         }
+                        //     }
+                        // }
+                    );
+                    return queries;
+                }
+
+                const dataToInsert: IDocument[] = [];
+                // toArray(data).forEach(async (row: IDocument, index: number) => {
+                data = toArray(data);
+                for (let index = data.length - 1; index >= 0; index--) {
+                    if (data[index]._id) {
+                        // update, find in db
+                        await this._getUpdateQuery(
+                            data[index],
+                            { ...dataSchema, array: false },
+                            {
+                                arrayFilters: parent.arrayFilters.concat({
+                                    // ['i' + data[index]._id]: {
+                                    //     _id: this.getObjectID(data[index]._id)
+                                    // }
+                                    [`i${data[index]._id}._id`]: this.getObjectID(data[index]._id)
+                                }),
+                                // fields: parent.fields,
+                                path: parent.path.concat(`$[i${data[index]._id}]`)
+                            },
+                            queries
+                        );
+                    } else {
+                        data[index]._id = new ObjectID();
+                        dataToInsert.push(data[index]);
+                    }
+                }
+                if (dataToInsert.length) {
+                    await this._setUpdateQuery(
+                        queries,
+                        parent,
+                        '$push',
+                        {
+                            $each: dataToInsert
+                        },
+                        // {
+                        //     type: DataType.DOCUMENT,
+                        //     schema: {
+                        //         $each: dataSchema
+                        //     }
+                        // }
+                    );
+                }
+            } else {
+                if (data.$delete) {
+                    await this._setUpdateQuery(
+                        queries,
+                        parent,
+                        '$pull',
+                        {
+                            $in: toArray(data.$delete)
+                        },
+                        // {
+                        //     type: DataType.DOCUMENT,
+                        //     schema: {
+                        //         $in: {
+                        //             type: dataSchema.type,
+                        //             array: true
+                        //         }
+                        //     }
+                        // }
+                    );
+                    return queries;
+                }
+
+                const arrayData = toArray(data);
+                await this._setUpdateQuery(
+                    queries,
+                    parent,
+                    '$push',
+                    {
+                        $each: arrayData
+                    },
+                    // {
+                    //     type: DataType.DOCUMENT,
+                    //     schema: {
+                    //         $each: dataSchema
+                    //     }
+                    // }
+                );
+            }
+        } else {
+            switch (dataSchema.type) {
+                case DataType.DOCUMENT:
+                    if (!dataSchema.schema) {
+                        throw new SchemaError(
+                            `Undefined "schema" property on "${dataSchema.type}" type in ${JSON.stringify(dataSchema)}`
+                        );
+                    }
+                    if (data instanceof Object) {
+                        for (const field in data) {
+                            await this._getUpdateQuery(
+                                data[field],
+                                field === GeneratedField.DATE_MODIFIED ? {
+                                    type: DataType.DATE
+                                } : dataSchema.schema[field],
+                                {
+                                    arrayFilters: parent.arrayFilters,
+                                    // fields: parent.fields.concat(field),
+                                    path: parent.path.concat(field)
+                                },
+                                queries
+                            );
+                        }
+                    }
+                    break;
+                default:
+                    await this._setUpdateQuery(
+                        queries,
+                        parent,
+                        '$set',
+                        data,
+                        // dataSchema
+                    );
+                    break;
+            }
+        }
+
+        return queries;
+    }
+
+    private async _setUpdateQuery (
+        queries: IUpdateQueries,
+        parent: IUpdateQueryParent,
+        action: string,
+        data: any,
+        // dataSchema: IDataSchema
+    ): Promise<void> {
+        const parentPath = parent.path.join('.');
+
+        if (!queries[action]) {
+            queries[action] = {
+                values: {},
+                arrayFilters: []
+            };
+        }
+
+        // await this._transform(data, dataSchema);
+
+        Object.assign(queries[action].values, {
+            [parentPath]: data
+        });
+
+        const currentFiltersById: { [id: string]: number } = {};
+        queries[action].arrayFilters.forEach((filter) => {
+            for (const id in filter) {
+                currentFiltersById[id.substr(1)] = 1;
+            }
+        });
+
+        queries[action].arrayFilters.push(
+            ...parent.arrayFilters.filter((filter) => {
+                for (const id in filter) {
+                    if (currentFiltersById[id.substr(1)]) {
+                        return false;
+                    }
+                }
+                return true;
+            })
+        );
+    }
+
 }
 
 export default Mongo;

@@ -1603,23 +1603,87 @@ describe.only('Mongo Module', function () {
 
         it('should update data normally including replacing an entire array with a new value', async () => {
             let data = await model6.getCollection().findOne();
-// console.log( require('util').inspect(data, false, null, true) );
-data.j = [1,2];
+
+data.j = {
+    $delete: data.j[0]
+};
+
+data.i = 'iiiii';
+
+data.a[1].f.g = [
+    ...data.a[1].f.g,
+    {
+        h: 'h5'
+    }
+];
+
+data.a[1].b[1].c.d = {
+    $delete: [data.a[1].b[1].c.d[1]._id]
+};
+
+data.a[0].b[1].c.d = {
+    $set: [{
+        e: 'e.x'
+    }]
+};
+
+// test add new item and modifeid date
 // data = {
 //     _id: data._id,
-//     j: [1,2]
-// }
-// console.log(data);
+//     a: [
+//         {
+//             f: {
+//                 g: [
+//                     {
+//                         h: 'hh5'
+//                     }
+//                 ]
+//             }
+//         }
+//     ]
+// };
 
-            const result = await model6.update(data, {returnOriginal: false});
-console.log( require('util').inspect(result, false, null, true) );
+// test add array item to nested array and modified date
+// data = {
+//     _id: data._id,
+//     a: [
+//         {
+//             _id: data.a[1]._id,
+//             f: {
+//                 g: [
+//                     {
+//                         h: 'hh5'
+//                     }
+//                 ]
+//             }
+//         }
+//     ]
+// };
+
+// console.log( require('util').inspect(data, false, null, true) );
+await new Promise((resolve) => {
+    setTimeout(async () => {
+        const result = await model6.update(data, { returnOriginal: false }); // , projection: { 'a.f.g': 1 }
+        // delete result.raw;
+    console.log( require('util').inspect(result.value, false, null, true) );
+    // console.log(result.value.a.length);
+    resolve()
+    }, 1000)
+})
+
+
+
         });
+
+        it('should update dateModified on the main doc');
 
         it('should add, remove, set and add+remove scalar and object id values in array');
 
         it('should add, remove, set and add+remove documents in array and set correct dateModified values');
 
         it('should update selected documents in array and set correct dateModified values');
+
+
 
         it('should not update if document _id value is an invalid object id');
         // near line 919: row._id = row._id ? this.getObjectID(row._id) || row._id : new ObjectID();
