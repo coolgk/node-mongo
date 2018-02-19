@@ -11,8 +11,6 @@ const chalk = require('chalk');
 const del = require('del');
 const header = require('gulp-header');
 
-const childProcess = require('child_process');
-
 const packageJsonFile = require('./package.json');
 
 const codeHeader = `/*!
@@ -37,7 +35,11 @@ gulp.task('package', () => generatePackage({
         // 'name': '@coolgk/mvc',
         'devDependencies': undefined,
         'scripts': undefined,
-        'pre-commit': undefined
+        'pre-commit': undefined,
+        'repository': {
+            type: 'git',
+            url: 'https://github.com/coolgk/node-mvc.git'
+        }
     }
 }));
 
@@ -65,6 +67,8 @@ async function generatePackage ({
     await copyFilesToPackage(distFolder, packageFolder);
     // cp simplified package.json to package/
     await createPackageJson(packageFolder, packageJson, packageJsonOverride);
+    // cp licence file
+    await createLicence(packageFolder);
 }
 
 function createFolder (path) {
@@ -204,6 +208,14 @@ function createPackageJson (packageFolder, packageJson, packageJsonOverride) {
     });
 }
 
+function createLicence (packageFolder) {
+    return new Promise((resolve, reject) => {
+        fs.createReadStream('./LICENSE').pipe(
+            fs.createWriteStream(`${packageFolder}/LICENSE`)
+        ).on('finish', resolve).on('error', reject);
+    });
+}
+
 function consoleLogError (message) {
     console.error(chalk.white.bgRed.bold(message));
 }
@@ -211,7 +223,7 @@ function consoleLogError (message) {
 function execCommand (command, options = { mute: false }) {
     return new Promise((resolve, reject) => {
         if (!options.mute) console.log('exec command: ' + command); // eslint-disable-line
-        childProcess.exec(command, { maxBuffer: Infinity }, (error, stdout, stderr) => {
+        require('child_process').exec(command, { maxBuffer: Infinity }, (error, stdout, stderr) => {
             if (!options.mute) console.log(stdout); // eslint-disable-line
             consoleLogError(stderr);
             if (error) {
