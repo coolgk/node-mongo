@@ -8,7 +8,7 @@ const expect = chai.expect;
 describe.only('Mongo Module', function () {
     this.timeout(30000);
 
-    const { Mongo, DataType, GeneratedField } = require(`../dist/mongo`);
+    const { Mongo, DataType, GeneratedField, MongoError } = require(`../dist/mongo`);
     const { MongoClient, ObjectID, writeError } = require('mongodb');
 
     let model;
@@ -1961,12 +1961,25 @@ describe.only('Mongo Module', function () {
             expect(newData.a).to.deep.equal(oldData.a);
         });
 
+        it('should throw mongo error if _id is not defined', () => {
+            expect(model6.updateOne({})).to.be.rejectedWith(MongoError);
+        });
+
         it('should bulk update (update many)');
 
     });
 
     describe('general functions', () => {
-
+        it('should convert object id', () => {
+            const id = model.getObjectId(new ObjectID().toHexString());
+            const id2 = model.getObjectId(new ObjectID());
+            const id3 = model.getObjectId(123);
+            const id4 = model.getObjectId();
+            expect(id instanceof ObjectID).to.be.true;
+            expect(id2 instanceof ObjectID).to.be.true;
+            expect(id3).to.be.undefined;
+            expect(id4).to.be.undefined;
+        });
     });
 
 });
