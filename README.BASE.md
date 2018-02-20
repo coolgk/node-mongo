@@ -14,6 +14,8 @@ A MongoDB ORM (ORM?) library that enables data validation, joins on collections 
 SELECT * FROM a LEFT JOIN b ON a.b_id = b.id
 ```
 
+becomes
+
 ```javascript
 model.find({}, {
     join: [ { on: 'b_id' } ]
@@ -38,6 +40,8 @@ Result:
 ```sql
 SELECT * FROM a, b WHERE a.b_id = b.id AND b.b_name = 'bname1'
 ```
+
+becomes
 
 ```javascript
 model.find({}, {
@@ -95,13 +99,13 @@ Result:
 
 ### Data Validation
 
-- Data Type
+- Data Type Check
 - Required Field
 - Enum Values
-- String Pattern
+- String Regex Pattern
 - String Minimum and Maximum Length
-- Minimum and Maximum Values
-- Minium and Maximum Number of Array Items
+- Minimum and Maximum Values For Numbers
+- Minimum and Maximum Number of Array Items
 - Unique Array Values
 
 ### Default Value, Setter Function, Last Modified Date
@@ -148,8 +152,10 @@ Result
 
 Updating documents in arrays could be annoying especially when there are 100+ or even 50+ of them in an array. This library makes it very easy to update documents in arrays.
 
+Example Data
+
 ```javascript
-{
+const data = {
     title: 'Support Ticket 1',
     messages: [
         {
@@ -167,3 +173,234 @@ Updating documents in arrays could be annoying especially when there are 100+ or
     ]
 }
 ```
+
+#### Data Preparation: `_id` and `_dateModified`
+
+This library automatically adds _id and _dateMofidifed values to each document in the array, and uses the generated _id values for CRUD operations.
+
+```javascript
+model.insertOne(data);
+```
+
+`data` becomes
+
+```javascript
+{
+    _id: '5a8c16f3c452fd2c0d3687c6',
+    _dateModified: '2018-02-20T12:39:15.258Z', // auto generated
+    title: 'Support Ticket 1',
+    messages: [{
+            _id: '5a8c16f3c452fd2c0d3687c9', // auto generated
+            user: 'customer',
+            message: 'I found a bug',
+            _dateModified: '2018-02-20T12:39:15.259Z' // auto generated
+        },
+        {
+            _id: '5a8c16f3c452fd2c0d3687c8', // auto generated
+            user: 'support',
+            message: 'Restart your computer',
+            _dateModified: '2018-02-20T12:39:15.259Z' // auto generated
+        },
+        {
+            _id: '5a8c16f3c452fd2c0d3687c7', // auto generated
+            user: 'developer',
+            message: 'That\'s not a bug, it\'s a feature',
+            _dateModified: '2018-02-20T12:39:15.259Z' // auto generated
+        }
+    ]
+}
+```
+
+#### Update
+
+Similar to InsertOne() but with _id values in data. The script below will update the value of the `"message"` field of the seconnd document in the `"messages"` array.
+
+```javascript
+model.updateOne({
+    _id: '5a8c16f3c452fd2c0d3687c6', // find the document by _id in the collection
+    messages: [
+        {
+            _id: '5a8c16f3c452fd2c0d3687c8', // find the document by _id in the array
+            message: 'Turn on your computer' // update only the message field, other fields will not change
+        }
+    ]
+});
+```
+
+data in the collection becomes
+
+```javascript
+{
+    _id: '5a8c16f3c452fd2c0d3687c6',
+    title: 'Support Ticket 1',
+    messages: [{
+            _id: '5a8c16f3c452fd2c0d3687c9',
+            user: 'customer',
+            message: 'I found a bug',
+            _dateModified: '2018-02-20T12:39:15.259Z',
+        },
+        {
+            _id: '5a8c16f3c452fd2c0d3687c8',
+            user: 'support',
+            message: 'Turn on your computer', // new value
+            _dateModified: '2018-02-20T12:53:55.890Z' // new modified date
+        },
+        {
+            _id: '5a8c16f3c452fd2c0d3687c7',
+            user: 'developer',
+            message: 'That\'s not a bug, it\'s a feature',
+            _dateModified: '2018-02-20T12:39:15.259Z'
+        }
+    ],
+    _dateModified: '2018-02-20T12:53:55.889Z' // new modified date
+}
+```
+
+#### Delete
+
+The script below will delete the seconnd document in the `"messages"` array.
+
+```javascript
+model.updateOne({
+    _id: '5a8c16f3c452fd2c0d3687c6', // find the document by _id in the collection
+    messages: {
+        $delete: [ '5a8c16f3c452fd2c0d3687c8' ] // $delete operator: delete by _id
+    }
+});
+```
+
+data in the collection becomes
+
+```javascript
+{
+    _id: '5a8c16f3c452fd2c0d3687c6',
+    title: 'Support Ticket 1',
+    messages: [{
+            _id: '5a8c16f3c452fd2c0d3687c9',
+            user: 'customer',
+            message: 'I found a bug',
+            _dateModified: '2018-02-20T12:39:15.259Z'
+        },
+        {
+            _id: '5a8c16f3c452fd2c0d3687c7',
+            user: 'developer',
+            message: 'That\'s not a bug, it\'s a feature',
+            _dateModified: '2018-02-20T12:39:15.259Z'
+        }
+    ],
+    _dateModified: '2018-02-20T12:59:05.602Z' // new modified date
+}
+```
+
+#### Replace or Delete All
+
+```javascript
+model.updateOne({
+    _id: '5a8c16f3c452fd2c0d3687c6', // find the document by _id in the collection
+    messages: {
+        $replace: [] // replace the entire array with a new value
+    }
+});
+```
+
+#### Add
+
+Similar to Update, but without `_id` in sub documents. The script below will add an document into the `messages` array.
+
+```javascript
+model.updateOne({
+    _id: '5a8c16f3c452fd2c0d3687c6', // find the document by _id in the collection
+    messages: [
+        { // documents without _id = insert new
+            user: 'Support',
+            message: 'Please Ctrl + F5'
+        }
+    ]
+});
+```
+
+data in the collection becomes
+
+```javascript
+{
+    _id: '5a8c16f3c452fd2c0d3687c6',
+    title: 'Support Ticket 1',
+    messages: [{
+            _id: '5a8c16f3c452fd2c0d3687c9',
+            user: 'customer',
+            message: 'I found a bug',
+            _dateModified: '2018-02-20T12:39:15.259Z'
+        },
+        {
+            _id: '5a8c16f3c452fd2c0d3687c7',
+            user: 'developer',
+            message: 'That\'s not a bug, it\'s a feature',
+            _dateModified: '2018-02-20T12:39:15.259Z'
+        },
+        { // new document
+            _id: '5a8c1d6b082a652c35eb17d6', // auto generated
+            user: 'Support',
+            message: 'Please Ctrl + F5',
+            _dateModified: '2018-02-20T13:06:51.244Z' // auto generated
+        }
+    ],
+    _dateModified: '2018-02-20T13:06:51.243Z' // new modified date
+}
+```
+
+#### Multiple Operations
+
+Add, Update and Delete can happen in one single query.
+
+```javascript
+model.updateOne({
+    _id: '5a8c16f3c452fd2c0d3687c6', // find the document by _id in the collection
+    messages: {
+        $update: [
+            { // doc contains _id value, this is an update
+                _id: '5a8c1d6b082a652c35eb17d6', // find the document by _id in the array
+                message: 'Clear Your Cache' // update only the message field, other fields will not change
+            },
+            { // doc has no _id value, this is an insert
+                user: 'developer',
+                message: 'cannot replicate, not a bug!'
+            }
+        ],
+        $delete: [ '5a8c16f3c452fd2c0d3687c9' ] // delete by _id (the first doc)
+    }
+});
+```
+
+Final Result
+
+```javascript
+{
+    _id: '5a8c16f3c452fd2c0d3687c6',
+    title: 'Support Ticket 1',
+    messages: [{
+            _id: '5a8c16f3c452fd2c0d3687c7'，
+            user: 'developer',
+            message: 'That\'s not a bug, it\'s a feature',
+            _dateModified: '2018-02-20T12:39:15.259Z'
+        },
+        {
+            _id: '5a8c1d6b082a652c35eb17d6'，
+            user: 'Support',
+            message: 'Clear Your Cache', // new value
+            _dateModified: '2018-02-20T13:30:07.123Z' // new modified date
+        },
+        { // new doc
+            _id: '5a8c22df4656722c3fd787fa'，// auto generated
+            user: 'developer',
+            message: 'cannot replicate, not a bug!',
+            _dateModified: '2018-02-20T13:30:07.123Z' // auto generated
+        }
+    ],
+    _dateModified: '2018-02-20T13:30:07.121Z' // new modified date
+}
+```
+
+## Documentation
+
+### Schema
+

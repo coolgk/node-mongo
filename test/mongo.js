@@ -1728,7 +1728,10 @@ describe.only('Mongo Module', function () {
             expect(result.value).to.deep.equal(newData);
             expect(newData.j).to.deep.equal([model6Data.j[0]]);
             expect(newData.l).to.deep.equal(['a', 'c', 'd']);
-            expect(newData.a[1].b[1].c.d).to.deep.equal([{ e: 'eeexxx' }]);
+
+            expect(newData.a[1].b[1].c.d[0]).to.have.property('_id');
+            expect(newData.a[1].b[1].c.d[0].e).to.deep.equal('eeexxx');
+
             expect(newData.a[1].b[1].k).to.equal('kkkxxx');
         });
 
@@ -1912,9 +1915,12 @@ describe.only('Mongo Module', function () {
                 _id: model6Data._id,
                 j: ['x']
             };
-            const result = await model6.updateOne(data, { returnOriginal: false });
-            expect(result).to.have.property('error');
-            expect(result.error).to.have.property('$push');
+            let error = undefined;
+            await model6.updateOne(data, { returnOriginal: false }).catch((err) => error = err);
+            // expect(result).to.have.property('error');
+            // expect(result.error).to.have.property('$push');
+            expect(error instanceof MongoError).to.true;
+            expect(error.data.error).to.have.property('$push');
 
             const oldData = await model6.getCollection().findOne();
             const data2 = {
@@ -1933,9 +1939,13 @@ describe.only('Mongo Module', function () {
                     $replace: ['x']
                 }
             };
-            const result3 = await model6.updateOne(data3, { returnOriginal: false });
-            expect(result3).to.have.property('error');
-            expect(result3.error).to.have.property('$set');
+
+            let error2;
+            await model6.updateOne(data3, { returnOriginal: false }).catch((err) => error2 = err);
+            // expect(result3).to.have.property('error');
+            // expect(result3.error).to.have.property('$set');
+            expect(error2 instanceof MongoError).to.true;
+            expect(error2.data.error).to.have.property('$set');
 
             const data4 = {
                 _id: model6Data._id,
@@ -1943,9 +1953,13 @@ describe.only('Mongo Module', function () {
                     $update: ['x']
                 }
             };
-            const result4 = await model6.updateOne(data4, { returnOriginal: false });
-            expect(result4).to.have.property('error');
-            expect(result4.error).to.have.property('$push');
+
+            let error3;
+            await model6.updateOne(data4, { returnOriginal: false }).catch((err) => error3 = err);
+            // expect(result4).to.have.property('error');
+            // expect(result4.error).to.have.property('$push');
+            expect(error3 instanceof MongoError).to.true;
+            expect(error3.data.error).to.have.property('$push');
         });
 
         it('should revert to the original data with revertOnError option', async () => {
@@ -1956,7 +1970,25 @@ describe.only('Mongo Module', function () {
                     $replace: ['x']
                 }
             };
-            await model6.updateOne(data2, { returnOriginal: false, revertOnError: true });
+
+            // await new Promise((resolve, reject) => {
+            //     model6.updateOne(data2, { returnOriginal: false, revertOnError: true }).then((a) => {
+            //         reject();
+            //     },(error) => {
+            //         expect(error instanceof MongoError).to.be.true;
+            //         resolve();
+            //     });
+            // });
+
+            let error;
+            await model6.updateOne(data2, { returnOriginal: false, revertOnError: true }).catch((err) => {
+                error = err;
+            });
+
+            expect(error instanceof MongoError).to.be.true;
+            // expect(
+            //     Promise.resolve(model6.updateOne(data2, { returnOriginal: false, revertOnError: true }))
+            // ).to.be.rejectedWith(MongoError);
             const newData = await model6.getCollection().findOne();
 
             expect(newData).to.deep.equal(oldData);
@@ -2000,6 +2032,64 @@ describe.only('Mongo Module', function () {
             const newData = await model6.getCollection().findOne();
 
             expect(newData.m).to.equal(oldData.m);
+        });
+
+        it('should update modified date when editing docs with $update and $repalce', async () => {
+            const oldData = await model6.getCollection().findOne();
+            const data = {
+                _id: model6Data._id,
+                a: {
+                    $update: [
+                        {
+                            _id: oldData.a[0]._id,
+                            f: {
+                                g: [
+                                    {
+                                        h: 'new'
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                j: {
+                    $update: [
+                        (new ObjectID()).toHexString()
+                    ]
+                }
+            };
+            let result = await model6.updateOne(data, { returnOriginal: false });
+            let newData = await model6.getCollection().findOne();
+
+            expect(oldData.a[0][GeneratedField.DATE_MODIFIED].getTime()).to.be.below(newData.a[0][GeneratedField.DATE_MODIFIED].getTime());
+            expect(result).to.not.have.property('error');
+            const data2 = {
+                _id: model6Data._id,
+                a: {
+                    $replace: [
+                        {
+                            f: {
+                                g: [
+                                    {
+                                        h: 'new'
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            };
+            await model6.updateOne(data2, { returnOriginal: false });
+            let newData2 = await model6.getCollection().findOne();
+
+            expect(
+                oldData.a[0][GeneratedField.DATE_MODIFIED].getTime()
+            ).to.be.below(
+                newData2.a[0][GeneratedField.DATE_MODIFIED].getTime()
+            );
+
+            expect(newData2.a[0].f.g[0]).to.have.property(GeneratedField.DATE_MODIFIED);
+            expect(newData2.a[0].f.g[0]).to.have.property('_id');
         });
 
         it('should bulk update (update many)');

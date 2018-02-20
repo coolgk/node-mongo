@@ -143,7 +143,7 @@ export enum GeneratedField {
     DATE_MODIFIED = '_dateModified'
 }
 
-export class MongoError extends Error {}
+export class MongoError extends Error { public data: any; }
 
 export class SchemaError extends Error {} // tslint:disable-line
 
@@ -317,8 +317,36 @@ export class Mongo {
                 continue;
             }
 
-            try {
-                results.raw[action] = await this._collection.findOneAndUpdate(
+            results.raw[action] = await (this._collection.findOneAndUpdate(
+                {
+                    _id: data._id
+                },
+                {
+                    [action]: queries[action].values
+                },
+                {
+                    ...options,
+                    arrayFilters: queries[action].arrayFilters
+                } as any // 19 Feb 2018, types for mongo node driver does not support arrayFilters
+                // 12 Feb 2018, types also not support findOneAndUpdate() to return promise
+            ) as any).catch((error: Error) => {
+                if (!results.error) {
+                    results.error = {};
+                }
+                results.error[action] = error;
+            }) || {};
+
+            // get the first result
+            if (options.returnOriginal) {
+                if (!results.value) {
+                    results.value = results.raw[action].value;
+                }
+            } else {
+                results.value = results.raw[action].value;
+            }
+
+           /*  results.raw[action] = await new Promise((resolve) => {
+                this._collection.findOneAndUpdate(
                     {
                         _id: data._id
                     },
@@ -328,33 +356,73 @@ export class Mongo {
                     {
                         ...options,
                         arrayFilters: queries[action].arrayFilters
-                    } as any // 19 Feb 2018, types for mongo node driver does not support arrayFilters
-                );
-                // get the first result
-                if (options.returnOriginal) {
-                    if (!results.value) {
-                        results.value = results.raw[action].value;
+                    } as any, // 19 Feb 2018, types for mongo node driver does not support arrayFilters,
+                    (error, result) => {
+                        if (error) {
+                            if (!results.error) {
+                                results.error = {};
+                            }
+                            results.error[action] = error;
+                        } else {
+                            // get the first result
+                            if (options.returnOriginal) {
+                                if (!results.value) {
+                                    results.value = result.value;
+                                }
+                            } else {
+                                results.value = result.value;
+                            }
+                        }
+                        resolve(result);
                     }
-                } else {
-                    results.value = results.raw[action].value;
-                }
-            } catch (error) {
-                if (!results.error) {
-                    results.error = {};
-                }
-                results.error[action] = error;
-            }
+                );
+            }); */
+
+            // try {
+            //     results.raw[action] = await this._collection.findOneAndUpdate(
+            //         {
+            //             _id: data._id
+            //         },
+            //         {
+            //             [action]: queries[action].values
+            //         },
+            //         {
+            //             ...options,
+            //             arrayFilters: queries[action].arrayFilters
+            //         } as any // 19 Feb 2018, types for mongo node driver does not support arrayFilters
+            //     );
+            //     // get the first result
+            //     if (options.returnOriginal) {
+            //         if (!results.value) {
+            //             results.value = results.raw[action].value;
+            //         }
+            //     } else {
+            //         results.value = results.raw[action].value;
+            //     }
+            // } catch (error) {
+            //     if (!results.error) {
+            //         results.error = {};
+            //     }
+            //     results.error[action] = error;
+            // }
         }
 
-        if (results.error && options.revertOnError) {
-            try {
-                const revertResult = await this._collection.findOneAndReplace(
-                    { _id: dataBeforeUpdate._id },
-                    dataBeforeUpdate
-                );
-            } catch (error) {
-                results.error.$revert = error;
+        if (results.error) {
+            if (options.revertOnError) {
+                // try {
+                    const revertResult = await this._collection.findOneAndReplace(
+                        { _id: dataBeforeUpdate._id },
+                        dataBeforeUpdate
+                    ).catch((revertError) => {
+                        (results.error as any).$revert = revertError;
+                    });
+                // } catch (error) {
+                //     results.error.$revert = error;
+                // }
             }
+            const error = new MongoError('UpdateOne Error: ' + JSON.stringify(results.error));
+            error.data = results;
+            throw error;
         }
 
         return results;
@@ -932,6 +1000,7 @@ export class Mongo {
         if (dataSchema.array) {
             if (data.$replace) {
                 const dataToSet = toArray(data.$replace);
+                await this._transform(dataToSet, dataSchema);
                 await this._setUpdateQuery(
                     queries,
                     parent,
@@ -958,6 +1027,13 @@ export class Mongo {
                 if (!data.$update) {
                     return queries;
                 }
+            }
+
+            if (data.$update) {
+                await this._transform(
+                    dataSchema.type === DataType.DOCUMENT ? toArray(data.$update).filter((row) => row._id) : toArray(data.$update),
+                    dataSchema
+                );
             }
 
             data = toArray(data.$update || data);
