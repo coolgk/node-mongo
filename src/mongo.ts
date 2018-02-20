@@ -435,6 +435,7 @@ export class Mongo {
         dataSchema: IDataSchema,
         model: typeof Mongo = this.constructor as typeof Mongo
     ): Promise<void> {
+        joins = toArray(joins);
         const fieldPathsInJoin = joins.reduce((fieldPaths, join) => {
             return fieldPaths.concat(toArray(join.on));
         }, [] as string[]);
@@ -634,7 +635,7 @@ export class Mongo {
                 $and: []
             };
 
-            for (const join of joins) {
+            for (const join of toArray(joins)) {
                 const fields = toArray(join.on);
                 join.model = this._findObjectIdFieldModel(fields[0], model);
                 const filters = await this._getJoinQuery(join.model, join.filters, join.join);
@@ -813,7 +814,7 @@ export class Mongo {
     private async _transform (
         data: any,
         dataSchema: IDataSchema,
-        generateId: boolean = true,
+        insert: boolean = true,
         referencePointer?: IReferencePointer
     ): Promise<void> {
         if (!dataSchema) {
@@ -821,7 +822,7 @@ export class Mongo {
         }
 
         if (data === undefined) {
-            if (dataSchema.default !== undefined && referencePointer) {
+            if (insert && dataSchema.default !== undefined && referencePointer) {
                 (referencePointer.parent as any)[referencePointer.field] = dataSchema.default;
                 data = dataSchema.default;
             } else {
@@ -838,14 +839,14 @@ export class Mongo {
                     // data[index]._id = data[index]._id ? this.getObjectID(data[index]._id) || data[index]._id : new ObjectID();
                     if (data[index]._id) {
                         data[index]._id = this.getObjectID(data[index]._id) || data[index]._id;
-                    } else if (generateId) {
+                    } else if (insert) {
                         data[index]._id = new ObjectID();
                     }
                 }
                 await this._transform(
                     data[index],
                     { ...dataSchema, array: false },
-                    generateId,
+                    insert,
                     { parent: data, field: index }
                 );
             }
@@ -867,7 +868,7 @@ export class Mongo {
                             await this._transform(
                                 data[field],
                                 dataSchema.schema[field],
-                                generateId,
+                                insert,
                                 { parent: data, field }
                             );
                         }
@@ -929,8 +930,8 @@ export class Mongo {
         }
 
         if (dataSchema.array) {
-            if (data.$set) {
-                const dataToSet = toArray(data.$set);
+            if (data.$replace) {
+                const dataToSet = toArray(data.$replace);
                 await this._setUpdateQuery(
                     queries,
                     parent,

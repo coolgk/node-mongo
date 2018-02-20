@@ -581,6 +581,19 @@ describe.only('Mongo Module', function () {
             expect(result).to.deep.equal(docs);
         });
 
+        it('should show empty result when filters cannot find data on referenced collection', async () => {
+            const result = await model.find({}, {
+                join: [{
+                    on: ['model2DbRef'],
+                    filters: {
+                        number: 987
+                    }
+                }]
+            });
+
+            expect(result).to.be.empty;
+        });
+
         it('should filter resursive object id referenced fields when there are multiple matches', async () => {
             const result = await model.find({}, {
                 join: [
@@ -1508,6 +1521,10 @@ describe.only('Mongo Module', function () {
                         l: {
                             type: DataType.STRING,
                             array: true
+                        },
+                        m: {
+                            type: DataType.STRING,
+                            default: 'dm'
                         }
                     };
                 }
@@ -1607,7 +1624,8 @@ describe.only('Mongo Module', function () {
                 ],
                 l: [
                     'a', 'b', 'c'
-                ]
+                ],
+                m: 'mmmmm'
             };
             await model6.insertOne(data);
             model6Data = data;
@@ -1643,7 +1661,7 @@ describe.only('Mongo Module', function () {
             const data = {
                 _id: oldData._id,
                 a: {
-                    $set: [
+                    $replace: [
                         {
                             f: {
                                 g: [
@@ -1657,7 +1675,7 @@ describe.only('Mongo Module', function () {
                 },
                 i: 'i2',
                 j: {
-                    $set: [
+                    $replace: [
                         id
                     ]
                 }
@@ -1691,7 +1709,7 @@ describe.only('Mongo Module', function () {
                                 _id: model6Data.a[1].b[1]._id,
                                 c: {
                                     d: {
-                                        $set: [
+                                        $replace: [
                                             {
                                                 e: 'eeexxx'
                                             }
@@ -1759,7 +1777,7 @@ describe.only('Mongo Module', function () {
                                 _id: model6Data.a[0].b[1]._id,
                                 c: {
                                     d: {
-                                        $set: []
+                                        $replace: []
                                     }
                                 }
                             }
@@ -1912,7 +1930,7 @@ describe.only('Mongo Module', function () {
             const data3 = {
                 _id: model6Data._id,
                 j: {
-                    $set: ['x']
+                    $replace: ['x']
                 }
             };
             const result3 = await model6.updateOne(data3, { returnOriginal: false });
@@ -1935,7 +1953,7 @@ describe.only('Mongo Module', function () {
             const data2 = {
                 _id: model6Data._id,
                 j: {
-                    $set: ['x']
+                    $replace: ['x']
                 }
             };
             await model6.updateOne(data2, { returnOriginal: false, revertOnError: true });
@@ -1970,6 +1988,18 @@ describe.only('Mongo Module', function () {
 
         it('should throw mongo error if _id is not defined', () => {
             expect(model6.updateOne({})).to.be.rejectedWith(MongoError);
+        });
+
+        it('should not use default value if update data does not contains fields with default values', async () => {
+            const oldData = await model6.getCollection().findOne();
+            const data = {
+                _id: oldData._id,
+                i: 'ai'
+            };
+            await model6.updateOne(data, { returnOriginal: false });
+            const newData = await model6.getCollection().findOne();
+
+            expect(newData.m).to.equal(oldData.m);
         });
 
         it('should bulk update (update many)');
