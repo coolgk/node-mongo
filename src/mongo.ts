@@ -541,7 +541,7 @@ export class Mongo {
             if (!joinData) {
                 const projection = join.projection;
                 if (projection && projection._id === 0) {
-                    projection._id = 1;
+                    delete projection._id;
                 }
 
                 joinData = this._db.collection(joinModel.getCollectionName()).find(
@@ -711,7 +711,7 @@ export class Mongo {
                 if (Object.keys(filters).length) {
                     const projection = join.projection || {};
                     if (projection._id === 0) {
-                        projection._id = 1;
+                        delete projection._id;
                     }
 
                     const cursor = this._db.collection((join.model as typeof Mongo).getCollectionName() as string).find(

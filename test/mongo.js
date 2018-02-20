@@ -2107,6 +2107,48 @@ describe.only('Mongo Module', function () {
             expect(id3).to.be.undefined;
             expect(id4).to.be.undefined;
         });
+
+        it('should error when child model does not implement getSchema or getCollectionName method', () => {
+            class modele extends Mongo {
+                static getSchema () {
+                    return {};
+                }
+            }
+            expect(() => new modele({ db })).to.throw(MongoError);
+
+            class modele1 extends Mongo {
+                static getSchema () {
+                    return {};
+                }
+            }
+            expect(() => new modele1({ db })).to.throw(MongoError);
+        });
+
+        it('should add _id back in projection if _id is removed in projection in join', async () => {
+            const result = await model.find({}, {
+                join: [{
+                    on: 'model2DbRef',
+                    projection: {
+                        _id: 0
+                    },
+                    join: [{
+                        on: 'model3Ref',
+                        projection: {
+                            _id: 0
+                        },
+                        filters: {
+                            boolean: false
+                        }
+                    }]
+                }]
+            });
+
+            expect(result[0].model2DbRef).to.have.property('_id');
+            expect(result[0].model2DbRef).to.have.property('string');
+            expect(result[0].model2DbRef).to.have.property('number');
+            expect(result[0].model2DbRef).to.have.property('model3Ref');
+            expect(result[0].model2DbRef).to.have.property('model4Ref');
+        });
     });
 
 });

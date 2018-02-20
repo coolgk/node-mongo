@@ -1,12 +1,14 @@
 # @coolgk/mongo
 
-`npm install @coolgk/mongo`
-
 A MongoDB ORM (ORM?) library that enables data validation, joins on collections and simplifies CRUD on sub / nested documents in arrays.
+
+`npm install @coolgk/mongo`
 
 ## Feature Hightlights
 
-### Join: SQL to @coolgk/mongo
+### Join
+
+SQL to @coolgk/mongo
 
 #### Left Join
 
@@ -176,7 +178,7 @@ const data = {
 
 #### Data Preparation: `_id` and `_dateModified`
 
-This library automatically adds _id and _dateMofidifed values to each document in the array, and uses the generated _id values for CRUD operations.
+This library automatically adds `_id` and `_dateMofidifed` values to each document in the array, and uses the generated `_id` values for CRUD operations.
 
 ```javascript
 model.insertOne(data);
@@ -213,7 +215,7 @@ model.insertOne(data);
 
 #### Update
 
-Similar to InsertOne() but with _id values in data. The script below will update the value of the `"message"` field of the seconnd document in the `"messages"` array.
+Similar to InsertOne() but with `_id` values in data. The script below will update the value of the `"message"` field of the seconnd document in the `"messages"` array.
 
 ```javascript
 model.updateOne({
