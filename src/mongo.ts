@@ -22,7 +22,7 @@ export interface IDataSchema {
     schema?: ISchema;
     array?: boolean;
     // insert/update hooks
-    setter?: (value: any) => any;
+    setter?: (value: any, row: any) => any;
     default?: any;
     // validation properties
     enum?: any[];
@@ -851,7 +851,7 @@ export class Mongo {
             }
         } else {
             if (dataSchema.setter) {
-                data = await dataSchema.setter(data);
+                data = await dataSchema.setter(data, referencePointer ? referencePointer.parent : data);
                 this._setTransformedValue(data, referencePointer);
             }
 

@@ -880,6 +880,10 @@ describe.only('Mongo Module', function () {
                     dateDefaultConvert: {
                         type: DataType.DATE,
                         default: '2018-02-17'
+                    },
+                    setterRowData: {
+                        type: DataType.STRING,
+                        setter: (value, row) => value + ' ' + row.string
                     }
                 };
             }
@@ -1318,7 +1322,9 @@ describe.only('Mongo Module', function () {
                     boolean: false,
                     date: new Date(),
                     setterString: 'xxx',
-                    promiseSetterString: 'yyy'
+                    promiseSetterString: 'yyy',
+                    string: 'str',
+                    setterRowData: '---'
                 };
                 await model5.insertOne(data);
                 const result = await model5.getCollection().findOne();
@@ -1326,6 +1332,7 @@ describe.only('Mongo Module', function () {
                 expect(result.setterString).to.equal('xxxaaa');
                 expect(result.promiseSetterString).to.equal('yyyaaa');
                 expect(result.setterDefaultString).to.equal('bbbaaa');
+                expect(result.setterRowData).to.equal('--- str');
             });
 
             it('should convert number, date, boolean, _id values and convert default values', async () => {
