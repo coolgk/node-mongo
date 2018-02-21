@@ -19,6 +19,9 @@ const codeHeader = `/*!
  * @link ${packageJsonFile.homepage}
  * @license ${packageJsonFile.license}
  * @author ${packageJsonFile.author}
+ *
+ * Copyright (c) 2017 ${packageJsonFile.author}. All rights reserved.
+ * Licensed under the MIT License.
  */
 
 `;

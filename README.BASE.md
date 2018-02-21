@@ -1,6 +1,6 @@
 # @coolgk/mongo
 
-A MongoDB ORM (ORM?) library that enables data validation, joins on collections and simplifies CRUD on sub / nested documents in arrays.
+A MongoDB ORM (ORM?) javascript / typescript library that enables data validation, joins on collections and simplifies CRUD on sub / nested documents in arrays.
 
 `npm install @coolgk/mongo`
 
@@ -404,5 +404,56 @@ Final Result
 
 ## Documentation
 
+### Basics
+
+To use this library, you need to create a class that extends the `Mongo` property in `@coolgk/mongo` and implements the `getCollectionName` and `getSchema` static methods.
+
+- `getCollectionName` must return a collection name
+- `getSchema` must return the schema of the collection (see the Schema section below)
+
+```javascript
+const { Mongo } = require('@coolgk/mongo');
+// OR import { Mongo } from '@coolgk/mongo';
+
+class A extends Mongo {
+    static getCollectionName () {
+        return 'a';
+    }
+    static getSchema () {
+        return {
+            a_name: {
+                type: DataType.STRING
+            }
+        }
+    }
+}
+```
+
 ### Schema
 
+Schema is defined in `static getSchema()` of the model class.
+
+#### Schema Format
+
+```javascript
+{
+    [fieldName]: {
+        type: '...',
+        ... // other properties
+    },
+    ...
+}
+```
+
+#### Shared Schema Properties: array, default, setter
+
+Properties that applies to all data types.
+
+- `array`: a boolean value that defines if values are arrays
+- `default`: defines the default value of a field
+- `setter`: a callback function that transforms the value before insert and update
+
+Example Data
+
+```javascript
+```
