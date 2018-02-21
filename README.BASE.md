@@ -4,6 +4,11 @@ A MongoDB ORM (ORM?) javascript / typescript library that enables data validatio
 
 `npm install @coolgk/mongo`
 
+- [Feature Hightlights](#Feature-Hightlights)
+- [Documentation](#Documentation)
+  - [Basics](#Basics)
+  - [Schema](#Schema)
+
 ## Feature Hightlights
 
 ### Join
@@ -21,7 +26,7 @@ becomes
 ```javascript
 model.find({}, {
     join: [ { on: 'b_id' } ]
-})`
+})
 ```
 
 Result:
@@ -122,8 +127,8 @@ Schema:
     },
     category: {
         type: DataType.STRING,
-        setter: (value, row) => { // setter callback
-            row.tags = [value];
+        setter: (value, document) => { // setter callback
+            document.tags = [value];
             return `cat: ${value}`;
         }
     },
@@ -307,7 +312,7 @@ model.updateOne({
 
 #### Add
 
-Similar to Update, but without `_id` in sub documents. The script below will add an document into the `messages` array.
+Similar to Update, but without `_id` in sub documents. The script below will add a new document into the `messages` array.
 
 ```javascript
 model.updateOne({
@@ -406,16 +411,18 @@ Final Result
 
 ### Basics
 
-To use this library, you need to create a class that extends the `Mongo` property in `@coolgk/mongo` and implements the `getCollectionName` and `getSchema` static methods.
+#### Model Class
+
+The model class must extend the `Mongo` property of this library and implement the `getCollectionName` and `getSchema` static methods.
 
 - `getCollectionName` must return a collection name
 - `getSchema` must return the schema of the collection (see the Schema section below)
 
 ```javascript
-const { Mongo } = require('@coolgk/mongo');
-// OR import { Mongo } from '@coolgk/mongo';
+const { Mongo, DataType } = require('@coolgk/mongo');
+// OR import { Mongo, DataType } from '@coolgk/mongo';
 
-class A extends Mongo {
+class ModelA extends Mongo {
     static getCollectionName () {
         return 'a';
     }
@@ -428,6 +435,10 @@ class A extends Mongo {
     }
 }
 ```
+
+#### Class Instantiation
+
+
 
 ### Schema
 
@@ -445,15 +456,244 @@ Schema is defined in `static getSchema()` of the model class.
 }
 ```
 
-#### Shared Schema Properties: array, default, setter
+#### Shared Schema Properties: `type`, `array`, `default`, `setter`, `required`
 
-Properties that applies to all data types.
+Properties that are valid for all data types.
 
-- `array`: a boolean value that defines if values are arrays
-- `default`: defines the default value of a field
-- `setter`: a callback function that transforms the value before insert and update
-
-Example Data
+##### **`type`**: Data type of the field. Supported types are in the DataType property of the library.
 
 ```javascript
+const { DataType } = require('@coolgk/mongo');
+```
+
+- [DataType.STRING](#DataType.STRING)
+- [DataType.NUMBER](#DataType.NUMBER)
+- [DataType.ENUM](#DataType.ENUM)
+- [DataType.OBJECTID](#DataType.OBJECTID)
+- [DataType.DOCUMENT](#DataType.DOCUMENT)
+- DataType.BOOLEAN
+- DataType.DATE
+
+##### **`array`**: a boolean value that defines if values are arrays
+
+```javascript
+const document = {
+    tags: ['game', 'shooter', 'sale']; // array of strings
+};
+
+const schema = {
+    tags: {
+        type: DataType.STRING, // string type
+        array: true // array of string
+    }
+}
+```
+
+##### **`default`**: defines the default value of a field
+
+```javascript
+const schema = {
+    group: {
+        type: DataType.STRING, // string type
+        default: 'generic'
+    }
+}
+```
+
+##### **`setter`**: a callback function that transforms the value before insert and update
+
+`(value, document) => { return newValue; }`
+
+- value: original value
+- document: all new values (to be saved) in the same document
+- return: a new value
+
+```javascript
+const schema = {
+    tags: {
+        type: DataType.STRING, // string type
+        setter: (value, document) => {
+            return value + '-tag'
+        }
+    }
+}
+```
+
+##### **`required`**: manditory field, a boolean value for validation
+
+```javascript
+const schema = {
+    email: {
+        type: DataType.STRING, // string type
+        required: true
+    }
+}
+```
+
+##### `default`, `setter`, `array`, `required` Example
+
+```javascript
+const schema = {
+    name: {
+        type: DataType.STRING,
+        default: 'abc' // default value
+    },
+    category: {
+        type: DataType.STRING,
+        required: true, // manditory field
+        setter: (value, document) => { // setter callback
+            document.tags = [value];
+            return `cat: ${value}`;
+        }
+    },
+    tags: {
+        type: DataType.STRING,
+        array: true
+    }
+}
+```
+
+```javascript
+model.insertOne({ category: 'game' });
+```
+
+Result
+
+```javascript
+{
+    _id: '5a8c097fb14dc72b8401c773',
+    category: 'cat: game', // setter applied
+    name: 'abc', // default value
+    tags: ['game'], // added by cateegory's setter
+    _dateModified: '2018-02-20T11:43:45.612Z' // automatically added by insertOne
+}
+```
+
+#### Shared Array Validation Properties: `maxItems`, `minItems`, `uniqueItems`
+
+for fields that have `array: true`
+
+- "`maxItems`": the maximum number of items in array
+- "`minItems`": the minimum number of items in array
+- "`uniqueItems`": a boolean value to define if each item in the array must be unique
+
+```javascript
+{
+    secureQuestionAnswers: {
+        type: DataType.STRING,
+        array: true,
+        minItems: 1,
+        maxItems: 3,
+        uniqueItems: true
+    }
+}
+```
+
+#### Type Specific Properties
+
+##### `DataType.ENUM`
+
+- "`enum`": array of enum values
+
+```javascript
+{
+    logLevel: {
+        type: DataType.ENUM,
+        enum: [ 'notice', 'warn', 'error' ]
+    }
+}
+```
+
+##### `DataType.STRING`
+
+- "`minLength`": minimum length of the string value
+- "`maxLength`": maximum length of the string value
+- "`pattern`": string containing a regex, the string value must match the regular expression
+
+```javascript
+{
+    email: {
+        type: DataType.STRING,
+        minLength: 10,
+        maxLength: 200,
+        pattern: '@\w+\.com$'
+    }
+}
+```
+
+##### `DataType.NUMBER`
+
+- "`minimum`": minimum value of a number
+- "`maximum`": minimum value of a number
+
+```javascript
+{
+    rating: {
+        type: DataType.NUMBER,
+        minimum: 0,
+        maximum: 10
+    }
+}
+```
+
+##### `DataType.OBJECTID`
+
+- "`model`": the class that the object id value references to. This is a **required** property for `DataType.OBJECTID` type and is required by "`join`" option in `find()`
+
+```javascript
+const { Mongo, DataType } = require('@coolgk/mongo');
+
+class Category extends Mongo {
+    static getCollectionName () {
+        return 'Category';
+    }
+    static getSchema () {
+        return {
+            name: {
+                type: DataType.STRING
+            }
+        }
+    }
+}
+
+class Product extends Mongo {
+    static getCollectionName () {
+        return 'Product';
+    }
+    static getSchema () {
+        return {
+            name: {
+                type: DataType.STRING
+            },
+            category: {
+                type: DataType.OBJECTID,
+                model: Category // category class, in real code, this could be require(../models/category.js)
+            }
+        }
+    }
+}
+```
+
+##### `DataType.DOCUMENT`
+
+- "`schema`": the schema of the sub document which uses the same format as the main schema
+
+```javascript
+{
+    address: {
+        type: DataType.DOCUMENT,
+        schema: { // schema of the address sub document
+            street: {
+                type: DataType.STRING
+            },
+            postcode: {
+                type: DataType.STRING
+            },
+            country: {
+                type: DataType.OBJECTID,
+                model: Country
+            }
+        }
+    }
+}
 ```
