@@ -66,7 +66,7 @@ async function generatePackage ({
     // generate index.ts
     await generateIndexFile(sourceFolder, excludedFiles);
     // compile ts
-    await compileTs(sourceFolder, distFolder, fileHeader);
+    // await compileTs(sourceFolder, distFolder, fileHeader);
     // cp complied .js and d.ts files from dist/ to package/
     await copyFilesToPackage(distFolder, packageFolder);
     // cp simplified package.json to package/
@@ -102,16 +102,17 @@ function compileTs (sourceFolder, distFolder, fileHeader, dev) {
     //         .pipe(sourcemaps.write())
     //         .pipe(header('require("source-map-support").install();' + "\n")); // eslint-disable-line
     // } else {
-    tsResult.js = tsResult.js.pipe(header(fileHeader));
-    promises.push(
-        new Promise((resolve) => {
-            tsResult.dts
-                .pipe(header(fileHeader))
-                .pipe(gulp.dest(distFolder))
-                .on('finish', () => resolve());
-        })
-    );
-    // }
+    if (!dev) {
+        tsResult.js = tsResult.js.pipe(header(fileHeader));
+        promises.push(
+            new Promise((resolve) => {
+                tsResult.dts
+                    .pipe(header(fileHeader))
+                    .pipe(gulp.dest(distFolder))
+                    .on('finish', () => resolve());
+            })
+        );
+    }
 
     promises.push(
         new Promise((resolve) => {

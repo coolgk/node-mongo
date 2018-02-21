@@ -1,7 +1,7 @@
 {
   "name": "@coolgk/mongo",
   "version": "1.0.0",
-  "description": "Mongo Library",
+  "description": "A Mongo ORM Library",
   "main": "dist/mongo.js",
   "repository": {
     "type": "git",
@@ -66,6 +66,8 @@
   "keywords": [
     "mongo",
     "orm",
-    "odm"
+    "odm",
+    "relational",
+    "join"
   ]
 }

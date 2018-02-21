@@ -148,10 +148,26 @@ export enum GeneratedField {
     DATE_MODIFIED = '_dateModified'
 }
 
+/**
+ * One of the Error types thrown from this module
+ * @export
+ * @class MongoError
+ * @extends {Error}
+ */
 export class MongoError extends Error { public data: any; }
 
+/**
+ * One of the Error types thrown from this module
+ * @export
+ * @class SchemaError
+ * @extends {Error}
+ */
 export class SchemaError extends Error {} // tslint:disable-line
 
+/**
+ * @export
+ * @class Mongo
+ */
 export class Mongo {
 
     /**
