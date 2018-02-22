@@ -19,9 +19,6 @@ const codeHeader = `/*!
  * @link ${packageJsonFile.homepage}
  * @license ${packageJsonFile.license}
  * @author ${packageJsonFile.author}
- *
- * Copyright (c) 2017 ${packageJsonFile.author}. All rights reserved.
- * Licensed under the MIT License.
  */
 
 `;
@@ -42,7 +39,7 @@ gulp.task('package', () => generatePackage({
         'pre-commit': undefined,
         'repository': {
             type: 'git',
-            url: 'https://github.com/coolgk/node-mvc.git'
+            url: 'https://github.com/coolgk/mongo.git'
         }
     }
 }));
