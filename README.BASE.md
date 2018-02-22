@@ -4,10 +4,17 @@ A MongoDB ORM (ORM?) javascript / typescript library that enables data validatio
 
 `npm install @coolgk/mongo`
 
-- [Feature Hightlights](#Feature-Hightlights)
-- [Documentation](#Documentation)
-  - [Basics](#Basics)
-  - [Schema](#Schema)
+- [Feature Hightlights](#feature-hightlights)
+- [Documentation](#documentation)
+  - [Basics](#basics)
+  - [Schema](#schema)
+  - [Find & Join](#find--join)
+  - [Insert](#insert)
+  - [Update](#update)
+    - [Sub Document CRUD](#subdocumentcrud)
+  - [Validation](#validation)
+  - [Native Mongo Functions](#nativemongofunctions)
+  - [Utility Method](#utilitymethod)
 
 ## Feature Hightlights
 
@@ -218,7 +225,7 @@ model.insertOne(data);
 }
 ```
 
-#### Update
+#### Update A Sub Document
 
 Similar to InsertOne() but with `_id` values in data. The script below will update the value of the `"message"` field of the seconnd document in the `"messages"` array.
 
@@ -263,7 +270,7 @@ data in the collection becomes
 }
 ```
 
-#### Delete
+#### Delete A Document
 
 The script below will delete the seconnd document in the `"messages"` array.
 
@@ -310,7 +317,7 @@ model.updateOne({
 });
 ```
 
-#### Add
+#### Add A Sub Document
 
 Similar to Update, but without `_id` in sub documents. The script below will add a new document into the `messages` array.
 
@@ -491,7 +498,7 @@ Schema is defined in `static getSchema()` of the model class.
 
 #### Shared Schema Properties: `type`, `array`, `default`, `setter`, `required`
 
-These Properties are valid for all data types.
+These properties are valid for all data types.
 
 ##### **`type`**: Data type of the field. Supported types are in the DataType property of the library.
 
@@ -499,11 +506,11 @@ These Properties are valid for all data types.
 const { DataType } = require('@coolgk/mongo');
 ```
 
-- [DataType.STRING](#DataType.STRING)
-- [DataType.NUMBER](#DataType.NUMBER)
-- [DataType.ENUM](#DataType.ENUM)
-- [DataType.OBJECTID](#DataType.OBJECTID)
-- [DataType.DOCUMENT](#DataType.DOCUMENT)
+- [DataType.STRING](#datatypestring)
+- [DataType.NUMBER](#datatypenumber)
+- [DataType.ENUM](#datatypeenum)
+- [DataType.OBJECTID](#datatypeobjectid)
+- [DataType.DOCUMENT](#datatypedocument)
 - DataType.BOOLEAN
 - DataType.DATE
 
@@ -735,14 +742,14 @@ class Product extends Mongo {
 
 Tested in MongoDB >= 3.x
 
-An augmented version of the `find()` function from [mongo's native driver](#http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find)
+An augmented version of the `find()` function from [mongo's node driver](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find)
 
 #### `find(query, options)`
 
-##### Parameters
+Parameters
 
-- `query`: same as the `query` parameter in [mongo's node driver](#http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find)
-- `options`: all options from [mongo's node driver](#http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find) plus two extra properties `cursor` and `join`
+- `query`: same as the `query` parameter in mongo's [find()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find)
+- `options`: all options from mongo's [find()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find) plus two extra properties `cursor` and `join`
 
 **`options.join`**
 
@@ -770,10 +777,10 @@ array of join definitions
 }
 ```
 
-- `join.on`: array of object id fields that reference to a same collection. There can be multiple joins in the `join` array but when there are multiple fields reference to a same collection, these fields could be defined in the same block e.g. `createdBy` and `modifiedBy` fields both reference to the `user` collection, the on value would be `['createdBy', 'modifiedBy']`. You can still put them in separate blocks if you need to filter them differently.
-- `join.projection`: same as the `projection` option in `find()`. Fields to select from the referenced collection, 1 = select, 0 = deselect.
-- `join.filters`: same as the `query` parameter in `find()` for filter docs in the referenced collection
-- `join.join`: recursively join other collections
+- **`join.on`**: array of object id fields that reference to a same collection. There can be multiple joins in the `join` array but when there are multiple fields reference to a same collection, these fields could be defined in the same block e.g. `createdBy` and `modifiedBy` fields both reference to the `user` collection, the on value would be `['createdBy', 'modifiedBy']`. You can still put them in separate blocks if you need to filter them differently.
+- **`join.projection`**: same as the `projection` option in `find()`. Fields to select from the referenced collection, 1 = select, 0 = deselect.
+- **`join.filters`**: same as the `query` parameter in `find()` for filter docs in the referenced collection
+- **`join.join`**: recursively join other collections
 
 Example
 
@@ -874,7 +881,7 @@ WHERE
 
 **`options.cursor`**
 
-Boolean. The default value is `false`. By default, the results are returned as an array. If `cursor` is true, the items in cursor are promises instead documents. i.e. Promise<Document>
+Boolean. The default value is `false`. By default, the results are returned as an array. If `cursor` is true, the items in the cursor are promises instead documents.
 
 ```javascript
 const cursor = modelA.find({}, {
@@ -898,8 +905,114 @@ cursor.forEach(async (documentPromise) => {
 });
 ```
 
+### Insert
+
+#### `insertOne(document, options)`
+
+Parameters
+
+- `document` - same as the `doc` param in mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
+- `options` - same as the `options` param in mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
+- return - a promise, same as the return value of mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
+
+#### `insertMany(document, options)`
+
+Parameters
+
+- `documents` - same as the `docs` param of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
+- `options` - same as the `options` param of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
+- return - a promise, same as the return value of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
+
+#### `insertOne()` and `insertMany()` behaviours
+
+- add `_dateModified` (Constant: `GeneratedField.DATE_MODIFIED`) in the main doc and docs in arrays
+- add `_id` in docs in arrays
+- set default values defined in schema
+- apply setters defined in schema
+- convert valid numbers (`!isNaN()`) to numbers '123' => 123
+- convert string `'false'` or `'0'` to boolean `false` and cast other values to boolean (`!!value`) for `DataType.BOOLEAN`
+- convert `DataType.OBJECTID` strings and `_id` strings to ObjectID object if they are valid ObjectID
+- convert valid date string to Date object for `DataType.DATE`
+
+### Update
+
+#### `updateOne(data, options)`
+
+- **`data`** - document data with or without `_id` values in sub documents
+- **`options`** - all `options` in mongo's [findOneAndUpdate()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#findOneAndUpdate) plus a new `revertOnError` option
+  - `options.revertOnError` - [see below](#optionsrevertonerror)
+- return - `{ value: ..., raw: ... }`
+  - `value`: the updated document rather than the original if `options.returnOriginal` is false, otherwise the original document
+  - `raw`: raw outputs from mongo's functions
+
+#### Behaviour
+
+- Update a single document.
+- updateOne() updates data in three steps: set, add, delete.
+- This method is not atomic if more than one type of actions are executed e.g. set+add set+delete or set+add+delete etc.
+- updateOne() is atomic if only one type of actions is executed e.g. only adding new values
+
+##### `options.revertOnError`
+
+Boolean. default = false
+
+Restore the document back to the original value before the update. This action is NOT atomic. If an error happens in one of the set, add, delete steps, the data is stored as at where the action stopped. e.g. if an error happens in the delete step, data set and added in the previous steps are stored in db. To stop this from happening, the "`revertOnerror`" option reverts the document back to the status before the `updateOne()` is executed. This action is not atomic. If the document is updated by a different source while updateOne() is still running, the "`revertOnError`" action will overwrite the changes made by the other source.
+
+#### Manipulating Sub Documents With `UpdateOne()`
+
+see [Sub Document CRUD](#subdocumentcrud)
 
 ### Validation
 
 require mongodb 3.6+
 
+#### `setDbValidationSchema()`
+
+Validations are done at database level. `setDbValidationSchema()` sets validation rules in db and only need to be called once per schema change. `insertOne()`, `insertMany()` and `updateOne()` will return a rejected promise if validation fails at db level. Validation errors are return from Mongo's node client. This library does not control the contents of the validation error object.
+
+##### Implementation
+
+Add a "set validation" script to your deployment process.
+
+e.g.
+
+```javascript
+const db = mongoClientDB;
+const modelFiles = findAllModelFiles();
+
+(async () => {
+    for (file of modelFiles) {
+        const model = new (require(file))({ db });
+        await model.setDbValidationSchema();
+    }
+})();
+
+db.close();
+```
+
+### Native Mongo Functions
+
+#### `getDB()`
+
+returns the Db object of the mongo client <http://mongodb.github.io/node-mongodb-native/3.0/api/Db.html>
+
+```javascript
+// use native db methods
+model.getDb().dropDatabase();
+```
+
+#### `getCollection()`
+
+returns the Collection object of the mongo client <http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html>
+
+```javascript
+// use native mongo collection methods
+model.getCollection().aggregate( ... )
+```
+
+### Utility Method
+
+`getObjectID(id)`
+
+- `id` - a string or an ObjectID object
+- return - an ObjectID or undefined if `id` is not a valid ObjectID string

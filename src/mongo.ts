@@ -9,6 +9,10 @@ import {
 } from 'mongodb';
 import { toArray } from '@coolgk/array';
 
+export enum GeneratedField {
+    DATE_MODIFIED = '_dateModified'
+}
+
 // model field data types
 export enum DataType {
     STRING = 'string',
@@ -142,10 +146,6 @@ export interface IUpdateResults {
 export interface IUpdateOption extends FindOneAndReplaceOption {
     revertOnError?: boolean;
     // noTransform?: boolean;
-}
-
-export enum GeneratedField {
-    DATE_MODIFIED = '_dateModified'
 }
 
 /**
