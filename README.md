@@ -4,10 +4,19 @@ A MongoDB ORM (ORM?) javascript / typescript library that enables data validatio
 
 `npm install @coolgk/mongo`
 
-- [Feature Hightlights](#Feature-Hightlights)
-- [Documentation](#Documentation)
-  - [Basics](#Basics)
-  - [Schema](#Schema)
+- [Feature Hightlights](#feature-hightlights)
+- [Documentation](#documentation)
+  - [Basics](#basics)
+  - [Schema](#schema)
+  - [Find & Join](#find--join)
+  - [Insert](#insert)
+  - [Update](#update)
+    - [Sub Document CRUD](#sub-document-crud)
+  - [Validation](#validation)
+  - [Native Mongo Functions](#native-mongo-functions)
+  - [Utility Method](#utility-method)
+  - [Error Types](#error-types)
+  - [Constants](#constants)
 
 ## Feature Hightlights
 
@@ -42,7 +51,7 @@ Result:
 }, { ... }, ... ]
 ```
 
-#### Right Join with Constraints
+#### Inner Join with Constraints
 
 ```sql
 SELECT * FROM a, b WHERE a.b_id = b.id AND b.b_name = 'bname1'
@@ -69,7 +78,7 @@ Result:
 }]
 ```
 
-#### Right Join on Mulitple Collections
+#### Inner Join on Mulitple Collections
 
 ```sql
 SELECT * FROM a, b, c WHERE a.b_id = b.id AND b.c_id = c.id AND c.c_name = 'cname3'
@@ -218,7 +227,7 @@ model.insertOne(data);
 }
 ```
 
-#### Update
+#### Update A Sub Document
 
 Similar to InsertOne() but with `_id` values in data. The script below will update the value of the `"message"` field of the seconnd document in the `"messages"` array.
 
@@ -263,7 +272,7 @@ data in the collection becomes
 }
 ```
 
-#### Delete
+#### Delete A Document
 
 The script below will delete the seconnd document in the `"messages"` array.
 
@@ -310,7 +319,7 @@ model.updateOne({
 });
 ```
 
-#### Add
+#### Add A Sub Document
 
 Similar to Update, but without `_id` in sub documents. The script below will add a new document into the `messages` array.
 
@@ -415,8 +424,8 @@ Final Result
 
 The model class must extend the `Mongo` property of this library and implement the `getCollectionName` and `getSchema` static methods.
 
-- `getCollectionName` must return a collection name
-- `getSchema` must return the schema of the collection (see the Schema section below)
+- **`getCollectionName()`** - must return a collection name
+- **`getSchema()`** - must return the schema of the collection (see the Schema section below)
 
 ```javascript
 const { Mongo, DataType } = require('@coolgk/mongo');
@@ -438,7 +447,40 @@ class ModelA extends Mongo {
 
 #### Class Instantiation
 
+The model class must be initiated with a `Db` instance from mongo node client. e.g. the db variable in v3.x MongoClient.connect(url, (err, client) => { const db = client.db(dbName); ... }) or in v2.x MongoClient.connect(url, (err, db) => { ... })
 
+```javascript
+const { MongoClient } = require('mongodb');
+
+MongoClient.connect('mongodb://localhost', (error, client) => {
+    const model = new ModelA({
+        db: client.db('test')
+    });
+});
+```
+
+OR
+
+```javascript
+const { MongoClient } = require('mongodb');
+
+(async () => {
+    const globalDb = await new Promise((resolve) => {
+        MongoClient.connect('mongodb://localhost', async (error, client) => {
+            const db = client.db('test');
+            resolve(db);
+        });
+    });
+
+    // ...
+    // ...
+    // ...
+
+    const modela = new ModelA({ db: globalDb });
+    const modelb = new ModelB({ db: globalDb });
+    ...
+})()
+```
 
 ### Schema
 
@@ -458,23 +500,23 @@ Schema is defined in `static getSchema()` of the model class.
 
 #### Shared Schema Properties: `type`, `array`, `default`, `setter`, `required`
 
-Properties that are valid for all data types.
+These properties are valid for all data types.
 
-##### **`type`**: Data type of the field. Supported types are in the DataType property of the library.
+##### **`type`** - Data type of the field. Supported types are in the `DataType` property of the library
 
 ```javascript
 const { DataType } = require('@coolgk/mongo');
 ```
 
-- [DataType.STRING](#DataType.STRING)
-- [DataType.NUMBER](#DataType.NUMBER)
-- [DataType.ENUM](#DataType.ENUM)
-- [DataType.OBJECTID](#DataType.OBJECTID)
-- [DataType.DOCUMENT](#DataType.DOCUMENT)
+- [DataType.STRING](#datatypestring)
+- [DataType.NUMBER](#datatypenumber)
+- [DataType.ENUM](#datatypeenum)
+- [DataType.OBJECTID](#datatypeobjectid)
+- [DataType.DOCUMENT](#datatypedocument)
 - DataType.BOOLEAN
 - DataType.DATE
 
-##### **`array`**: a boolean value that defines if values are arrays
+##### **`array`** - a boolean value that defines if values are arrays
 
 ```javascript
 const document = {
@@ -489,7 +531,7 @@ const schema = {
 }
 ```
 
-##### **`default`**: defines the default value of a field
+##### **`default`** - defines the default value of a field
 
 ```javascript
 const schema = {
@@ -500,13 +542,13 @@ const schema = {
 }
 ```
 
-##### **`setter`**: a callback function that transforms the value before insert and update
+##### **`setter`** - a callback function that transforms the value before insert and update
 
 `(value, document) => { return newValue; }`
 
-- value: original value
-- document: all new values (to be saved) in the same document
-- return: a new value
+- **`value`** - original value
+- **`document`** - all new values (to be saved) in the same document
+- **return** - a new value
 
 ```javascript
 const schema = {
@@ -519,7 +561,7 @@ const schema = {
 }
 ```
 
-##### **`required`**: manditory field, a boolean value for validation
+##### **`required`** - a boolean value to define if this field is a manditory field
 
 ```javascript
 const schema = {
@@ -573,9 +615,9 @@ Result
 
 for fields that have `array: true`
 
-- "`maxItems`": the maximum number of items in array
-- "`minItems`": the minimum number of items in array
-- "`uniqueItems`": a boolean value to define if each item in the array must be unique
+- **`maxItems`** - the maximum number of items in array
+- **`minItems`** - the minimum number of items in array
+- **`uniqueItems`** - a boolean value to define if each item in the array must be unique
 
 ```javascript
 {
@@ -593,7 +635,7 @@ for fields that have `array: true`
 
 ##### `DataType.ENUM`
 
-- "`enum`": array of enum values
+- **`enum`** - array of enum values
 
 ```javascript
 {
@@ -606,9 +648,9 @@ for fields that have `array: true`
 
 ##### `DataType.STRING`
 
-- "`minLength`": minimum length of the string value
-- "`maxLength`": maximum length of the string value
-- "`pattern`": string containing a regex, the string value must match the regular expression
+- **`minLength`** - minimum length of the string value
+- **`maxLength`** - maximum length of the string value
+- **`pattern`** - string containing a regex, the string value must match the regular expression
 
 ```javascript
 {
@@ -623,8 +665,8 @@ for fields that have `array: true`
 
 ##### `DataType.NUMBER`
 
-- "`minimum`": minimum value of a number
-- "`maximum`": minimum value of a number
+- **`minimum`** - minimum value of a number
+- **`maximum`** - minimum value of a number
 
 ```javascript
 {
@@ -638,7 +680,7 @@ for fields that have `array: true`
 
 ##### `DataType.OBJECTID`
 
-- "`model`": the class that the object id value references to. This is a **required** property for `DataType.OBJECTID` type and is required by "`join`" option in `find()`
+- **`model`** - the model class that the object id references to. This is a **required** property for **`DataType.OBJECTID`** type and is required by the **`join`** option in **`find()`**
 
 ```javascript
 const { Mongo, DataType } = require('@coolgk/mongo');
@@ -676,7 +718,7 @@ class Product extends Mongo {
 
 ##### `DataType.DOCUMENT`
 
-- "`schema`": the schema of the sub document which uses the same format as the main schema
+- **`schema`** - the schema of the sub document which uses the same format as the main schema. This is a **required** property for **`DataType.DOCUMENT`** type
 
 ```javascript
 {
@@ -698,191 +740,321 @@ class Product extends Mongo {
 }
 ```
 
+### Find & Join
+
+Tested in MongoDB >= 3.x
+
+An augmented version of [mongo's](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find) `find()` method
+
+#### `find(query, options)`
+
+Parameters
+
+- **`query`** - same as the `query` parameter in mongo's [find()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find)
+- **`options`** - all options from mongo's [find()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find) plus two extra properties **`join`** and **`cursor`**
+
+**`options.join`**
+
+array of join definitions
+
+```javascript
+{
+    join: [ // array of joins
+        {
+            on: ['name_of_an_object_id_field'],
+            projection: { // optional
+                [field_in_the_referenced_collection]: 1 or 0,
+                ...
+            },
+            filters: { // optional
+                // normal mongo query
+            },
+            join: { // optional
+                on: ['name_of_an_object_id_field_from_the_referenced_collection'],
+                ... // same format as the main join
+            }
+        },
+        ...
+    ]
+}
+```
+
+- **`join.on`** - array of object id fields that reference to a same collection. There can be multiple joins in one `join` array but when there are multiple fields reference to a same collection, these fields could be defined in the same block. For example, `createdBy` and `modifiedBy` fields both reference to the `user` collection, the **`on`** value would be `['createdBy', 'modifiedBy']`. You can still put them in separate blocks if you need to filter them differently.
+- **`join.projection`** - same as the `projection` option in `find()`. Fields to select from the referenced collection, 1 = select, 0 = deselect.
+- **`join.filters`** - same as the `query` parameter in `find()` for filtering docs in the referenced collection
+- **`join.join`** - recursively join other collections
+
+Example
+
+```javascript
+// model a schema
+{
+    a_name: {
+        type: DataType.STRING
+    },
+    b_id: {
+        type: DataType.OBJECTID,
+        model: B
+    },
+    c_id: {
+        type: DataType.OBJECTID,
+        model: C
+    }
+}
+// model b schema
+{
+    b_name: {
+        type: DataType.STRING
+    },
+    c_id: {
+        type: DataType.OBJECTID,
+        model: C
+    }
+}
+// model c schema
+{
+    c_name: {
+        type: DataType.STRING
+    },
+    c_group: {
+        type: DataType.STRING
+    }
+}
+
+modelA.find({}, {
+    join: [
+        {
+            on: ['b_id'], // join a.b_id to b._id
+            join: [{
+                on: 'c_id', // join b.c_id to c._id
+                filters: {
+                    c_name: 'cname3'
+                }
+            }]
+        },
+        {
+            on: 'c_id', // join a.c_id with c._id
+            projection: {
+                c_group: 1
+            }
+        }
+    ]
+});
+```
+
+Result:
+
+```javascript
+[{
+    _id: '5a8bdfc1b07af22a12cb1f0b',
+    a_name: 'aname3',
+    b_id: {
+        _id: '5a8bdfc1b07af22a12cb1f0a',
+        b_name: 'bname3',
+        c_id: {
+            _id: '5a8bdfc1b07af22a12cb1f09',
+            c_name: 'cname3',
+            c_group: 'group3'
+        }
+    },
+    c_id: {
+        _id: '5a8bdfc1b07af22a12cb1f09',
+        c_group: 'group2'
+    }
+}]
+```
+
+The query above is similar to SQL:
+
+```sql
+SELECT
+    A.*, B.*, CB.*, CA.c_group
+FROM
+    A
+JOIN
+    B ON A.b_id = B._id
+JOIN
+    C as CB ON B.c_id = CB._id
+JOIN
+    C as CA ON A.c_id = CA._id
+WHERE
+    CB.c_name = 'cname3'
+```
+
+**`options.cursor`**
+
+Boolean. The default value is `false`. By default, the results are returned as an array. If `cursor` is true, the items in the cursor are promises instead documents.
+
+```javascript
+const cursor = modelA.find({}, {
+    join: {
+        on: 'b_id'
+    },
+    cursor: true
+});
+
+cursor.forEach((documentPromise) => {
+    documentPromise.then((document) => {
+        ...
+    });
+});
+
+// OR
+
+cursor.forEach(async (documentPromise) => {
+    const document = await documentPromise;
+    ...
+});
+```
+
+### Insert
+
+#### `insertOne(document, options)`
+
+Parameters
+
+- **`document`** - same as the `doc` param in mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
+- **`options`** - same as the `options` param in mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
+- **return** - a promise, same as the return value of mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
+
+#### `insertMany(document, options)`
+
+Parameters
+
+- **`documents`** - same as the `docs` param of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
+- **`options`** - same as the `options` param of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
+- **return** - a promise, same as the return value of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
+
+#### `insertOne()` and `insertMany()` behaviours
+
+- add `_dateModified` (Constant: `GeneratedField.DATE_MODIFIED`) in the main doc and docs in arrays
+- add `_id` in docs in arrays
+- set default values defined in schema
+- apply setter functions defined in schema
+- convert valid numbers (`!isNaN()`) to numbers '123' => 123
+- convert string `'false'` or `'0'` to boolean `false` and cast other values to boolean (`!!value`) for `DataType.BOOLEAN`
+- convert `DataType.OBJECTID` strings and `_id` strings to ObjectID object if they are valid ObjectID
+- convert valid date string to Date object for `DataType.DATE`
+
+### Update
+
+#### `updateOne(data, options)`
+
+- **`data`** - document data with or without `_id` values in sub documents
+- **`options`** - all `options` in mongo's [findOneAndUpdate()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#findOneAndUpdate) plus a new `revertOnError` option
+  - `options.revertOnError` - [see below](#optionsrevertonerror)
+- **return** - `{ value: ..., raw: ... }`
+  - **`value`** - the updated document rather than the original if `options.returnOriginal` is false, otherwise the original document
+  - **`raw`** - raw outputs from mongo
+
+#### Behaviour
+
+- Update a single document.
+- updateOne() updates data in three steps: set, add, delete.
+- This method is not atomic if more than one type of actions are executed e.g. set+add set+delete or set+add+delete etc.
+- updateOne() is atomic if only one type of actions is executed e.g. only adding new values
+
+##### `options.revertOnError`
+
+Boolean. default = false
+
+Restore the document back to the original value before the update. If an error happens in one of the set, add, delete steps, the data is stored as at where the action stopped. e.g. if an error happens in the delete step, data set and added in the previous steps are stored in db. To stop this from happening, the "`revertOnerror`" option reverts the document back to the status before the `updateOne()` is executed. This action is NOT atomic. If a document is updated by a different source while updateOne() is still running, the "`revertOnError`" action will overwrite the changes made by the other source.
+
+#### Manipulating Sub Documents With `UpdateOne()`
+
+see [Sub Document CRUD](#sub-document-crud)
+
+### Validation
+
+require mongodb 3.6+
+
+#### `setDbValidationSchema()`
+
+Validations are done at database level. `setDbValidationSchema()` sets validation rules in db and only need to be called once per schema change. `insertOne()`, `insertMany()` and `updateOne()` will return a rejected promise if validation fails at db level. Validation errors are return from Mongo's node client. This library does not control the contents of the validation error object.
+
+##### Implementation
+
+Add a "set validation" script to your deployment process.
+
+e.g.
+
+```javascript
+const db = mongoClientDB;
+const modelFiles = findAllModelFiles();
+
+(async () => {
+    for (file of modelFiles) {
+        const model = new (require(file))({ db });
+        await model.setDbValidationSchema();
+    }
+})();
+
+db.close();
+```
+
+### Native Mongo Functions
+
+#### `getDB()`
+
+returns the Db object of the mongo client <http://mongodb.github.io/node-mongodb-native/3.0/api/Db.html>
+
+```javascript
+// use native db methods
+model.getDb().dropDatabase();
+```
+
+#### `getCollection()`
+
+returns the Collection object of the mongo client <http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html>
+
+```javascript
+// use native mongo collection methods
+model.getCollection().aggregate( ... )
+```
+
+### Utility Method
+
+`getObjectID(id)`
+
+- **`id`** - a string or an ObjectID object
+- **return** - an ObjectID or undefined if `id` is not a valid ObjectID string
+
+### Error Types
+
+`MongoError` and `SchemaError`
+
+```javascript
+const { MongoError, SchemaError } = require('@coolgk/mongo');
+```
+
+### Constants
+
+Name of the auto-generated date modified field
+
+- `GeneratedField.DATE_MODIFIED`
+
+Data Types:
+
+- `DataType.STRING`
+- `DataType.NUMBER`
+- `DataType.ENUM`
+- `DataType.OBJECTID`
+- `DataType.DOCUMENT`
+- `DataType.BOOLEAN`
+- `DataType.DATE`
+
+```javascript
+const { GeneratedField, DataType } = require('@coolgk/mongo');
+```
+
 
 Report bugs here: [https://github.com/coolgk/mongo/issues](https://github.com/coolgk/mongo/issues)
 
-## Classes
-
-<dl>
-<dt><a href="#MongoError">MongoError</a> ⇐ <code>Error</code></dt>
-<dd></dd>
-<dt><a href="#SchemaError">SchemaError</a> ⇐ <code>Error</code></dt>
-<dd></dd>
-<dt><a href="#Mongo">Mongo</a></dt>
-<dd></dd>
-</dl>
-
-<a name="MongoError"></a>
-
-## MongoError ⇐ <code>Error</code>
-**Kind**: global class  
-**Extends**: <code>Error</code>  
-**Export**:   
-<a name="new_MongoError_new"></a>
-
-### new MongoError()
-One of the Error types thrown from this module
-
-<a name="SchemaError"></a>
-
-## SchemaError ⇐ <code>Error</code>
-**Kind**: global class  
-**Extends**: <code>Error</code>  
-**Export**:   
-<a name="new_SchemaError_new"></a>
-
-### new SchemaError()
-One of the Error types thrown from this module
-
-<a name="Mongo"></a>
-
-## Mongo
-**Kind**: global class  
-**Export**:   
-
-* [Mongo](#Mongo)
-    * _instance_
-        * [.getObjectID(id)](#Mongo+getObjectID) ⇒ <code>object</code> \| <code>undefined</code>
-        * [.getObjectId()](#Mongo+getObjectId)
-        * [.getDb()](#Mongo+getDb) ⇒ <code>object</code>
-        * [.getCollection()](#Mongo+getCollection) ⇒ <code>object</code>
-        * [.setDbValidationSchema()](#Mongo+setDbValidationSchema) ⇒ <code>Promise.&lt;\*&gt;</code>
-        * [.insertOne(data, options)](#Mongo+insertOne) ⇒ <code>Promise.&lt;object&gt;</code>
-        * [.insertMany(data, options)](#Mongo+insertMany) ⇒ <code>Promise.&lt;object&gt;</code>
-        * [.updateOne(data, [options])](#Mongo+updateOne) ⇒ <code>Promise.&lt;object&gt;</code>
-        * [.find(query, [options])](#Mongo+find) ⇒ <code>Promise.&lt;(Cursor\|Array.&lt;object&gt;)&gt;</code>
-        * [.attachObjectIdData(data, joins)](#Mongo+attachObjectIdData) ⇒ <code>Promise.&lt;(Cursor\|Array.&lt;object&gt;)&gt;</code>
-    * _static_
-        * [.Mongo](#Mongo.Mongo)
-            * [new Mongo(options)](#new_Mongo.Mongo_new)
-        * [.getCollectionName()](#Mongo.getCollectionName) ⇒ <code>string</code>
-        * [.getSchema()](#Mongo.getSchema) ⇒ <code>object</code>
-
-<a name="Mongo+getObjectID"></a>
-
-### mongo.getObjectID(id) ⇒ <code>object</code> \| <code>undefined</code>
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-**Returns**: <code>object</code> \| <code>undefined</code> - - an ObjectID or undefined if "id" is not a valid ObjectID string  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| id | <code>object</code> \| <code>string</code> | a string or an instance of ObjectID |
-
-<a name="Mongo+getObjectId"></a>
-
-### mongo.getObjectId()
-an alias of the getObjectID() method.
-
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-<a name="Mongo+getDb"></a>
-
-### mongo.getDb() ⇒ <code>object</code>
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-**Returns**: <code>object</code> - - returns the db instance passed into the constructor  
-<a name="Mongo+getCollection"></a>
-
-### mongo.getCollection() ⇒ <code>object</code>
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-**Returns**: <code>object</code> - - mongo Collection insance of the current model  
-<a name="Mongo+setDbValidationSchema"></a>
-
-### mongo.setDbValidationSchema() ⇒ <code>Promise.&lt;\*&gt;</code>
-set validation schema in mongo
-
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-**Returns**: <code>Promise.&lt;\*&gt;</code> - - a promise returned from mongo's createCollection or collMod commands  
-<a name="Mongo+insertOne"></a>
-
-### mongo.insertOne(data, options) ⇒ <code>Promise.&lt;object&gt;</code>
-Insert One Document
-
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-**Returns**: <code>Promise.&lt;object&gt;</code> - - returns the return value of mongo's insertOne() function  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| data | <code>object</code> | one document |
-| options | <code>object</code> | options of mongo's insertOne() function |
-
-<a name="Mongo+insertMany"></a>
-
-### mongo.insertMany(data, options) ⇒ <code>Promise.&lt;object&gt;</code>
-Insert Mulitple Documents
-
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-**Returns**: <code>Promise.&lt;object&gt;</code> - - returns the return value of mongo's insertMany()  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| data | <code>Array.&lt;object&gt;</code> | multiple documents |
-| options | <code>object</code> | options of mongo's insertMany() function |
-
-<a name="Mongo+updateOne"></a>
-
-### mongo.updateOne(data, [options]) ⇒ <code>Promise.&lt;object&gt;</code>
-Update a single document.
-updateOne() updates data in three steps: set, add, delete.
-This method is not atomic if more than one type of actions are executed e.g. set+add set+delete or set+add+delete etc.
-updateOne() is atomic if only one type of actions is executed e.g. only adding new values
-
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-
-| Param | Type | Default | Description |
-| --- | --- | --- | --- |
-| data | <code>object</code> |  | one document, must contains a _id field |
-| [options] | <code>object</code> | <code>{}</code> | options of mongo's findOneAndUpdate() function plus the one(s) below |
-| [options.revertOnError] | <code>boolean</code> | <code>false</code> | restore db values back to the original values before the update. This action is NOT atomic. If an error happens in the set, add, delete processes, the data is stored as at where the action stopped. e.g. if an error happens in the delete step, data set and added in the previous steps are stored in db. To stop this from happening, the "revertOnerror" option reverts the document back to the status before the updateOne() is executed. This action is not atomic. If the document is updated by a different source while updateOne() is still processing data , the "revertOnError" option will overwrite the changes made from by the other source. |
-
-<a name="Mongo+find"></a>
-
-### mongo.find(query, [options]) ⇒ <code>Promise.&lt;(Cursor\|Array.&lt;object&gt;)&gt;</code>
-see parameter description for query and options in http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find
-
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-
-| Param | Type | Default | Description |
-| --- | --- | --- | --- |
-| query | <code>object</code> |  | same as query in mongo collection.find() |
-| [options] | <code>object</code> | <code>{}</code> | all value in options for mongo collection.find() |
-| [options.join] | <code>object</code> |  | query for joining other collections. format: { on: string | string[], projection?: { [fieldname]: 1 | 0 }, filters?: {...}, join?: { on: ..., projection?: ..., filters?: ..., join?: ... }[] } |
-| [options.cursor] | <code>object</code> | <code>false</code> | if to return a cursor, by default an array is returned |
-
-<a name="Mongo+attachObjectIdData"></a>
-
-### mongo.attachObjectIdData(data, joins) ⇒ <code>Promise.&lt;(Cursor\|Array.&lt;object&gt;)&gt;</code>
-Attach referenced collection data to a query result. Note: filters in join are not supported if this method is used directly on a query result i.e. not called from find(). Use find() if you want to filter result by the data in referenced collections
-
-**Kind**: instance method of [<code>Mongo</code>](#Mongo)  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| data | <code>Cursor</code> \| <code>Array.&lt;object&gt;</code> | a mongo query result |
-| joins | <code>Array.&lt;object&gt;</code> | query for joining other collections. format: { on: string | string[], projection?: { [fieldname]: 1 | 0 }, join?: { on: ..., projection?: ..., join?: ... }[] } |
-
-<a name="Mongo.Mongo"></a>
-
-### Mongo.Mongo
-**Kind**: static class of [<code>Mongo</code>](#Mongo)  
-<a name="new_Mongo.Mongo_new"></a>
-
-#### new Mongo(options)
-
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> |  |
-| options.db | <code>object</code> | a Db instance from mongo node client e.g. the db variable in v3.x MongoClient.connect(url, (err, client) => { const db = client.db(dbName); ... }) v2.x MongoClient.connect(url, (err, db) => { ... }) |
-
-<a name="Mongo.getCollectionName"></a>
-
-### Mongo.getCollectionName() ⇒ <code>string</code>
-classes that extends this class must implement this static method to set the collection name of the model
-
-**Kind**: static method of [<code>Mongo</code>](#Mongo)  
-**Returns**: <code>string</code> - - the collection name of the model  
-<a name="Mongo.getSchema"></a>
-
-### Mongo.getSchema() ⇒ <code>object</code>
-classes that extends this class must implement this static method to set the schema of the model
-
-**Kind**: static method of [<code>Mongo</code>](#Mongo)  
-**Returns**: <code>object</code> - - model schema, see documentaion.  
+```
+=============================== Coverage summary ===============================
+Statements   : 96.22% ( 280/291 )
+Branches     : 90.45% ( 199/220 )
+Functions    : 95.56% ( 43/45 )
+Lines        : 96.19% ( 278/289 )
+================================================================================
+```

@@ -6,7 +6,7 @@ const ts = require('gulp-typescript');
 const fs = require('fs');
 // const path = require('path');
 // const yaml = require('js-yaml');
-const jsdoc2md = require('jsdoc-to-markdown');
+// const jsdoc2md = require('jsdoc-to-markdown');
 const chalk = require('chalk');
 const del = require('del');
 const header = require('gulp-header');
@@ -51,6 +51,8 @@ gulp.task('publish', ['package'], () => {
     return execCommand(`cd package && npm publish --access=public`);
 });
 
+// gulp.task('cover', addTestCoverage);
+
 async function generatePackage ({
     distFolder, packageFolder, fileHeader, excludedFiles, sourceReadme, targetReadme, packageJson, sourceFolder, packageJsonOverride
 }) {
@@ -59,14 +61,16 @@ async function generatePackage ({
     // create /package folder
     await createFolder(packageFolder);
     // generate md for jsdoc from all .ts files
-    const jsDocs = await generateJsDocMd(sourceFolder, distFolder, fileHeader, excludedFiles);
+    // const jsDocs = await generateJsDocMd(sourceFolder, distFolder, fileHeader, excludedFiles);
     // recreate root README.md with README.BASE.md + jsdoc
+    const testCoverage = await createTestCoverage();
     // cp README.md to /package
-    await createReadme(jsDocs, sourceReadme, targetReadme, packageFolder, packageJson);
+    // await createReadme(jsDocs, sourceReadme, targetReadme, packageFolder, packageJson);
+    await createReadme(testCoverage, sourceReadme, targetReadme, packageFolder, packageJson);
     // generate index.ts
     await generateIndexFile(sourceFolder, excludedFiles);
     // compile ts
-    // await compileTs(sourceFolder, distFolder, fileHeader);
+    await compileTs(sourceFolder, distFolder, fileHeader);
     // cp complied .js and d.ts files from dist/ to package/
     await copyFilesToPackage(distFolder, packageFolder);
     // cp simplified package.json to package/
@@ -123,7 +127,7 @@ function compileTs (sourceFolder, distFolder, fileHeader, dev) {
     return Promise.all(promises);
 }
 
-async function generateJsDocMd (sourceFolder, distFolder, fileHeader, excludedFiles) {
+/* async function generateJsDocMd (sourceFolder, distFolder, fileHeader, excludedFiles) {
     await compileTs(sourceFolder, distFolder, fileHeader, true);
 
     return new Promise((resolve) => {
@@ -140,7 +144,7 @@ async function generateJsDocMd (sourceFolder, distFolder, fileHeader, excludedFi
             resolve(jsDocs);
         });
     });
-}
+} */
 
 function createReadme (jsDoc, sourceReadme, targetReadme, packageFolder, packageJson) {
     return new Promise((resolve, reject) => {
@@ -221,6 +225,10 @@ function createLicence (packageFolder) {
     });
 }
 
+async function createTestCoverage () {
+    return '```' + await execCommand('node_modules/nyc/bin/nyc.js report --reporter=text-summary', { mute: true }) + '```';
+}
+
 function consoleLogError (message) {
     console.error(chalk.white.bgRed.bold(message));
 }
@@ -235,7 +243,7 @@ function execCommand (command, options = { mute: false }) {
                 reject(error);
             } else {
                 if (!options.mute) console.log('done'); // eslint-disable-line
-                resolve();
+                resolve(stdout);
             }
         });
     });
