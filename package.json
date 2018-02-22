@@ -1,6 +1,6 @@
 {
   "name": "@coolgk/mongo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A MongoDB ORM (ORM?) javascript / typescript library which enables data validation, joins on collections and simplifies CRUD on sub / nested documents in arrays",
   "main": "dist/mongo.js",
   "repository": {
