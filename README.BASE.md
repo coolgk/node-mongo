@@ -11,10 +11,12 @@ A MongoDB ORM (ORM?) javascript / typescript library that enables data validatio
   - [Find & Join](#find--join)
   - [Insert](#insert)
   - [Update](#update)
-    - [Sub Document CRUD](#subdocumentcrud)
+    - [Sub Document CRUD](#sub-document-crud)
   - [Validation](#validation)
-  - [Native Mongo Functions](#nativemongofunctions)
-  - [Utility Method](#utilitymethod)
+  - [Native Mongo Functions](#native-mongo-functions)
+  - [Utility Method](#utility-method)
+  - [Error Types](#error-types)
+  - [Constants](#constants)
 
 ## Feature Hightlights
 
@@ -422,8 +424,8 @@ Final Result
 
 The model class must extend the `Mongo` property of this library and implement the `getCollectionName` and `getSchema` static methods.
 
-- `getCollectionName` must return a collection name
-- `getSchema` must return the schema of the collection (see the Schema section below)
+- **`getCollectionName()`** - must return a collection name
+- **`getSchema()`** - must return the schema of the collection (see the Schema section below)
 
 ```javascript
 const { Mongo, DataType } = require('@coolgk/mongo');
@@ -500,7 +502,7 @@ Schema is defined in `static getSchema()` of the model class.
 
 These properties are valid for all data types.
 
-##### **`type`**: Data type of the field. Supported types are in the DataType property of the library.
+##### **`type`** - Data type of the field. Supported types are in the `DataType` property of the library
 
 ```javascript
 const { DataType } = require('@coolgk/mongo');
@@ -514,7 +516,7 @@ const { DataType } = require('@coolgk/mongo');
 - DataType.BOOLEAN
 - DataType.DATE
 
-##### **`array`**: a boolean value that defines if values are arrays
+##### **`array`** - a boolean value that defines if values are arrays
 
 ```javascript
 const document = {
@@ -529,7 +531,7 @@ const schema = {
 }
 ```
 
-##### **`default`**: defines the default value of a field
+##### **`default`** - defines the default value of a field
 
 ```javascript
 const schema = {
@@ -540,13 +542,13 @@ const schema = {
 }
 ```
 
-##### **`setter`**: a callback function that transforms the value before insert and update
+##### **`setter`** - a callback function that transforms the value before insert and update
 
 `(value, document) => { return newValue; }`
 
-- value: original value
-- document: all new values (to be saved) in the same document
-- return: a new value
+- **`value`** - original value
+- **`document`** - all new values (to be saved) in the same document
+- **return** - a new value
 
 ```javascript
 const schema = {
@@ -559,7 +561,7 @@ const schema = {
 }
 ```
 
-##### **`required`**: a boolean value to define if this field is a manditory field
+##### **`required`** - a boolean value to define if this field is a manditory field
 
 ```javascript
 const schema = {
@@ -613,9 +615,9 @@ Result
 
 for fields that have `array: true`
 
-- "`maxItems`": the maximum number of items in array
-- "`minItems`": the minimum number of items in array
-- "`uniqueItems`": a boolean value to define if each item in the array must be unique
+- **`maxItems`** - the maximum number of items in array
+- **`minItems`** - the minimum number of items in array
+- **`uniqueItems`** - a boolean value to define if each item in the array must be unique
 
 ```javascript
 {
@@ -633,7 +635,7 @@ for fields that have `array: true`
 
 ##### `DataType.ENUM`
 
-- "`enum`": array of enum values
+- **`enum`** - array of enum values
 
 ```javascript
 {
@@ -646,9 +648,9 @@ for fields that have `array: true`
 
 ##### `DataType.STRING`
 
-- "`minLength`": minimum length of the string value
-- "`maxLength`": maximum length of the string value
-- "`pattern`": string containing a regex, the string value must match the regular expression
+- **`minLength`** - minimum length of the string value
+- **`maxLength`** - maximum length of the string value
+- **`pattern`** - string containing a regex, the string value must match the regular expression
 
 ```javascript
 {
@@ -663,8 +665,8 @@ for fields that have `array: true`
 
 ##### `DataType.NUMBER`
 
-- "`minimum`": minimum value of a number
-- "`maximum`": minimum value of a number
+- **`minimum`** - minimum value of a number
+- **`maximum`** - minimum value of a number
 
 ```javascript
 {
@@ -678,7 +680,7 @@ for fields that have `array: true`
 
 ##### `DataType.OBJECTID`
 
-- "`model`": the class that the object id references to. This is a **required** property for `DataType.OBJECTID` type and is required by "`join`" option in `find()`
+- **`model`** - the model class that the object id references to. This is a **required** property for **`DataType.OBJECTID`** type and is required by the **`join`** option in **`find()`**
 
 ```javascript
 const { Mongo, DataType } = require('@coolgk/mongo');
@@ -716,7 +718,7 @@ class Product extends Mongo {
 
 ##### `DataType.DOCUMENT`
 
-- "`schema`": the schema of the sub document which uses the same format as the main schema
+- **`schema`** - the schema of the sub document which uses the same format as the main schema. This is a **required** property for **`DataType.DOCUMENT`** type
 
 ```javascript
 {
@@ -742,14 +744,14 @@ class Product extends Mongo {
 
 Tested in MongoDB >= 3.x
 
-An augmented version of the `find()` function from [mongo's node driver](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find)
+An augmented version of [mongo's](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find) `find()` method
 
 #### `find(query, options)`
 
 Parameters
 
-- `query`: same as the `query` parameter in mongo's [find()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find)
-- `options`: all options from mongo's [find()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find) plus two extra properties `cursor` and `join`
+- **`query`** - same as the `query` parameter in mongo's [find()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find)
+- **`options`** - all options from mongo's [find()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#find) plus two extra properties **`join`** and **`cursor`**
 
 **`options.join`**
 
@@ -777,10 +779,10 @@ array of join definitions
 }
 ```
 
-- **`join.on`**: array of object id fields that reference to a same collection. There can be multiple joins in the `join` array but when there are multiple fields reference to a same collection, these fields could be defined in the same block e.g. `createdBy` and `modifiedBy` fields both reference to the `user` collection, the on value would be `['createdBy', 'modifiedBy']`. You can still put them in separate blocks if you need to filter them differently.
-- **`join.projection`**: same as the `projection` option in `find()`. Fields to select from the referenced collection, 1 = select, 0 = deselect.
-- **`join.filters`**: same as the `query` parameter in `find()` for filter docs in the referenced collection
-- **`join.join`**: recursively join other collections
+- **`join.on`** - array of object id fields that reference to a same collection. There can be multiple joins in one `join` array but when there are multiple fields reference to a same collection, these fields could be defined in the same block. For example, `createdBy` and `modifiedBy` fields both reference to the `user` collection, the **`on`** value would be `['createdBy', 'modifiedBy']`. You can still put them in separate blocks if you need to filter them differently.
+- **`join.projection`** - same as the `projection` option in `find()`. Fields to select from the referenced collection, 1 = select, 0 = deselect.
+- **`join.filters`** - same as the `query` parameter in `find()` for filtering docs in the referenced collection
+- **`join.join`** - recursively join other collections
 
 Example
 
@@ -821,17 +823,17 @@ Example
 
 modelA.find({}, {
     join: [
-        { // join a.b_id to b._id
-            on: ['b_id'],
-            join: [{ // join b.c_id to c._id
-                on: 'c_id',
+        {
+            on: ['b_id'], // join a.b_id to b._id
+            join: [{
+                on: 'c_id', // join b.c_id to c._id
                 filters: {
                     c_name: 'cname3'
                 }
             }]
         },
-        { // join a.c_id with c._id
-            on: 'c_id',
+        {
+            on: 'c_id', // join a.c_id with c._id
             projection: {
                 c_group: 1
             }
@@ -872,9 +874,9 @@ FROM
 JOIN
     B ON A.b_id = B._id
 JOIN
-    C as CB ON B.c_id = C._id
+    C as CB ON B.c_id = CB._id
 JOIN
-    C as CA ON A.c_id = C._id
+    C as CA ON A.c_id = CA._id
 WHERE
     CB.c_name = 'cname3'
 ```
@@ -911,24 +913,24 @@ cursor.forEach(async (documentPromise) => {
 
 Parameters
 
-- `document` - same as the `doc` param in mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
-- `options` - same as the `options` param in mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
-- return - a promise, same as the return value of mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
+- **`document`** - same as the `doc` param in mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
+- **`options`** - same as the `options` param in mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
+- **return** - a promise, same as the return value of mongo's [insertOne()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertOne)
 
 #### `insertMany(document, options)`
 
 Parameters
 
-- `documents` - same as the `docs` param of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
-- `options` - same as the `options` param of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
-- return - a promise, same as the return value of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
+- **`documents`** - same as the `docs` param of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
+- **`options`** - same as the `options` param of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
+- **return** - a promise, same as the return value of mongo's [insertMany()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#insertMany)
 
 #### `insertOne()` and `insertMany()` behaviours
 
 - add `_dateModified` (Constant: `GeneratedField.DATE_MODIFIED`) in the main doc and docs in arrays
 - add `_id` in docs in arrays
 - set default values defined in schema
-- apply setters defined in schema
+- apply setter functions defined in schema
 - convert valid numbers (`!isNaN()`) to numbers '123' => 123
 - convert string `'false'` or `'0'` to boolean `false` and cast other values to boolean (`!!value`) for `DataType.BOOLEAN`
 - convert `DataType.OBJECTID` strings and `_id` strings to ObjectID object if they are valid ObjectID
@@ -941,9 +943,9 @@ Parameters
 - **`data`** - document data with or without `_id` values in sub documents
 - **`options`** - all `options` in mongo's [findOneAndUpdate()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#findOneAndUpdate) plus a new `revertOnError` option
   - `options.revertOnError` - [see below](#optionsrevertonerror)
-- return - `{ value: ..., raw: ... }`
-  - `value`: the updated document rather than the original if `options.returnOriginal` is false, otherwise the original document
-  - `raw`: raw outputs from mongo's functions
+- **return** - `{ value: ..., raw: ... }`
+  - **`value`** - the updated document rather than the original if `options.returnOriginal` is false, otherwise the original document
+  - **`raw`** - raw outputs from mongo
 
 #### Behaviour
 
@@ -956,11 +958,11 @@ Parameters
 
 Boolean. default = false
 
-Restore the document back to the original value before the update. This action is NOT atomic. If an error happens in one of the set, add, delete steps, the data is stored as at where the action stopped. e.g. if an error happens in the delete step, data set and added in the previous steps are stored in db. To stop this from happening, the "`revertOnerror`" option reverts the document back to the status before the `updateOne()` is executed. This action is not atomic. If the document is updated by a different source while updateOne() is still running, the "`revertOnError`" action will overwrite the changes made by the other source.
+Restore the document back to the original value before the update. If an error happens in one of the set, add, delete steps, the data is stored as at where the action stopped. e.g. if an error happens in the delete step, data set and added in the previous steps are stored in db. To stop this from happening, the "`revertOnerror`" option reverts the document back to the status before the `updateOne()` is executed. This action is NOT atomic. If a document is updated by a different source while updateOne() is still running, the "`revertOnError`" action will overwrite the changes made by the other source.
 
 #### Manipulating Sub Documents With `UpdateOne()`
 
-see [Sub Document CRUD](#subdocumentcrud)
+see [Sub Document CRUD](#sub-document-crud)
 
 ### Validation
 
@@ -1014,5 +1016,33 @@ model.getCollection().aggregate( ... )
 
 `getObjectID(id)`
 
-- `id` - a string or an ObjectID object
-- return - an ObjectID or undefined if `id` is not a valid ObjectID string
+- **`id`** - a string or an ObjectID object
+- **return** - an ObjectID or undefined if `id` is not a valid ObjectID string
+
+### Error Types
+
+`MongoError` and `SchemaError`
+
+```javascript
+const { MongoError, SchemaError } = require('@coolgk/mongo');
+```
+
+### Constants
+
+Name of the auto-generated date modified field
+
+- `GeneratedField.DATE_MODIFIED`
+
+Data Types:
+
+- `DataType.STRING`
+- `DataType.NUMBER`
+- `DataType.ENUM`
+- `DataType.OBJECTID`
+- `DataType.DOCUMENT`
+- `DataType.BOOLEAN`
+- `DataType.DATE`
+
+```javascript
+const { GeneratedField, DataType } = require('@coolgk/mongo');
+```
