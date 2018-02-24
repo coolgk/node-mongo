@@ -1,14 +1,14 @@
 {
   "name": "@coolgk/mongo",
   "version": "1.0.1",
-  "description": "A MongoDB ORM (ORM?) javascript / typescript library which enables data validation, joins on collections and simplifies CRUD on sub / nested documents in arrays",
+  "description": "A javascript & typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements data validation based on schema",
   "main": "dist/mongo.js",
   "repository": {
     "type": "git",
     "url": "git+ssh://git@gitlab.com/coolgk/mongo.git"
   },
   "dependencies": {
-    "@coolgk/array": "^2.0.3",
+    "@coolgk/array": "^2",
     "mongodb": "^3.0.2"
   },
   "devDependencies": {
@@ -60,14 +60,16 @@
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/coolgk/mongo/issues"
+    "url": "https://github.com/coolgk/node-mongo/issues"
   },
-  "homepage": "https://github.com/coolgk/mongo",
+  "homepage": "https://github.com/coolgk/node-mongo",
   "keywords": [
     "mongo",
+    "MongoDB",
     "orm",
     "odm",
     "relational",
+    "data validation",
     "join"
   ]
 }

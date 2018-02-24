@@ -1,6 +1,6 @@
 # @coolgk/mongo
 
-A MongoDB ORM (ORM?) javascript / typescript library that enables data validation, joins on collections and simplifies CRUD on sub / nested documents in arrays.
+A javascript & typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements data validation based on schema.
 
 `npm install @coolgk/mongo`
 
