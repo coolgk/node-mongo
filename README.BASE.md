@@ -940,6 +940,8 @@ Parameters
 
 #### `updateOne(data, options)`
 
+require MongoDB >= 3.6
+
 - **`data`** - document data with or without `_id` values in sub documents
 - **`options`** - all `options` in mongo's [findOneAndUpdate()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#findOneAndUpdate) plus a new `revertOnError` option
   - `options.revertOnError` - [see below](#optionsrevertonerror)
@@ -966,7 +968,7 @@ see [Sub Document CRUD](#sub-document-crud)
 
 ### Validation
 
-require mongodb 3.6+
+require MongoDB >= 3.6
 
 #### `setDbValidationSchema()`
 

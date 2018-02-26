@@ -940,6 +940,8 @@ Parameters
 
 #### `updateOne(data, options)`
 
+require MongoDB >= 3.6
+
 - **`data`** - document data with or without `_id` values in sub documents
 - **`options`** - all `options` in mongo's [findOneAndUpdate()](http://mongodb.github.io/node-mongodb-native/3.0/api/Collection.html#findOneAndUpdate) plus a new `revertOnError` option
   - `options.revertOnError` - [see below](#optionsrevertonerror)
@@ -966,7 +968,7 @@ see [Sub Document CRUD](#sub-document-crud)
 
 ### Validation
 
-require mongodb 3.6+
+require MongoDB >= 3.6
 
 #### `setDbValidationSchema()`
 
@@ -1052,9 +1054,9 @@ Report bugs here: [https://github.com/coolgk/node-mongo/issues](https://github.c
 
 ```
 =============================== Coverage summary ===============================
-Statements   : 5.5% ( 16/291 )
-Branches     : 1.82% ( 4/220 )
-Functions    : 4.44% ( 2/45 )
-Lines        : 5.54% ( 16/289 )
+Statements   : 96.22% ( 280/291 )
+Branches     : 90.45% ( 199/220 )
+Functions    : 95.56% ( 43/45 )
+Lines        : 96.19% ( 278/289 )
 ================================================================================
 ```
