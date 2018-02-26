@@ -1,6 +1,6 @@
 # @coolgk/mongo
 
-A javascript & typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements data validation based on schema.
+A javascript / typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements schema based data validation.
 
 `npm install @coolgk/mongo`
 
@@ -1048,13 +1048,13 @@ const { GeneratedField, DataType } = require('@coolgk/mongo');
 ```
 
 
-Report bugs here: [https://github.com/coolgk/mongo/issues](https://github.com/coolgk/mongo/issues)
+Report bugs here: [https://github.com/coolgk/node-mongo/issues](https://github.com/coolgk/node-mongo/issues)
 
 ```
 =============================== Coverage summary ===============================
-Statements   : 96.22% ( 280/291 )
-Branches     : 90.45% ( 199/220 )
-Functions    : 95.56% ( 43/45 )
-Lines        : 96.19% ( 278/289 )
+Statements   : 5.5% ( 16/291 )
+Branches     : 1.82% ( 4/220 )
+Functions    : 4.44% ( 2/45 )
+Lines        : 5.54% ( 16/289 )
 ================================================================================
 ```

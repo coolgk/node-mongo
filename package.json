@@ -1,7 +1,7 @@
 {
   "name": "@coolgk/mongo",
   "version": "1.0.2",
-  "description": "A javascript & typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements data validation based on schema",
+  "description": "A javascript / typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements schema based data validation",
   "main": "dist/mongo.js",
   "repository": {
     "type": "git",
@@ -62,7 +62,7 @@
   "bugs": {
     "url": "https://github.com/coolgk/node-mongo/issues"
   },
-  "homepage": "https://github.com/coolgk/node-mongo",
+  "homepage": "https://coolgk.github.io/mongodb-orm.html",
   "keywords": [
     "mongo",
     "MongoDB",
