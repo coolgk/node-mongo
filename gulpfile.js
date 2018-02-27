@@ -65,7 +65,7 @@ async function generatePackage ({
     // await createReadme(jsDocs, sourceReadme, targetReadme, packageFolder, packageJson);
     await createReadme(testCoverage, sourceReadme, targetReadme, packageFolder, packageJson);
     // generate index.ts
-    await generateIndexFile(sourceFolder, excludedFiles);
+    // await generateIndexFile(sourceFolder, excludedFiles);
     // compile ts
     await compileTs(sourceFolder, distFolder, fileHeader);
     // cp complied .js and d.ts files from dist/ to package/
@@ -162,22 +162,22 @@ function createReadme (jsDoc, sourceReadme, targetReadme, packageFolder, package
     });
 }
 
-function generateIndexFile (sourceFolder, excludedFiles) {
-    return new Promise((resolve) => {
-        const writeStream = fs.createWriteStream(sourceFolder + '/index.ts');
-        fs.readdir(sourceFolder, (error, files) => {
-            files.forEach((file) => {
-                const filename = file.replace('.ts', '');
-                if (!excludedFiles.includes(filename)) {
-                    writeStream.write(`import * as _${filename} from './${filename}';\n`);
-                    writeStream.write(`export const ${filename} = _${filename}; // tslint:disable-line\n`);
-                }
-            });
-            writeStream.end();
-            resolve();
-        });
-    });
-}
+// function generateIndexFile (sourceFolder, excludedFiles) {
+//     return new Promise((resolve) => {
+//         const writeStream = fs.createWriteStream(sourceFolder + '/index.ts');
+//         fs.readdir(sourceFolder, (error, files) => {
+//             files.forEach((file) => {
+//                 const filename = file.replace('.ts', '');
+//                 if (!excludedFiles.includes(filename)) {
+//                     writeStream.write(`import * as _${filename} from './${filename}';\n`);
+//                     writeStream.write(`export const ${filename} = _${filename}; // tslint:disable-line\n`);
+//                 }
+//             });
+//             writeStream.end();
+//             resolve();
+//         });
+//     });
+// }
 
 function copyFilesToPackage (distFolder, packageFolder) {
     return new Promise((resolve, reject) => {
