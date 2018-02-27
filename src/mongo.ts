@@ -9,6 +9,8 @@ import {
 } from 'mongodb';
 import { toArray } from '@coolgk/array';
 
+export { InsertOneWriteOpResult, InsertWriteOpResult };
+
 export enum GeneratedField {
     DATE_MODIFIED = '_dateModified'
 }
