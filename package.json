@@ -1,6 +1,6 @@
 {
   "name": "@coolgk/mongo",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A javascript / typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements schema based data validation",
   "main": "./mongo.js",
   "repository": {
