@@ -1049,14 +1049,17 @@ Data Types:
 const { GeneratedField, DataType } = require('@coolgk/mongo');
 ```
 
+## Also see [@coolgk/mvc](https://www.npmjs.com/package/@coolgk/mvc)
+
+A simple, lightweight javascript / typescript MxC framework that helps you to create object oriented, modular and testable code.
 
 Report bugs here: [https://github.com/coolgk/node-mongo/issues](https://github.com/coolgk/node-mongo/issues)
 
 ```
 =============================== Coverage summary ===============================
-Statements   : 96.22% ( 280/291 )
-Branches     : 90.45% ( 199/220 )
-Functions    : 95.56% ( 43/45 )
-Lines        : 96.19% ( 278/289 )
+Statements   : Unknown% ( 0/0 )
+Branches     : Unknown% ( 0/0 )
+Functions    : Unknown% ( 0/0 )
+Lines        : Unknown% ( 0/0 )
 ================================================================================
 ```
