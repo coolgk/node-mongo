@@ -37,10 +37,7 @@ gulp.task('package', () => generatePackage({
         'devDependencies': undefined,
         'scripts': undefined,
         'pre-commit': undefined,
-        'repository': {
-            type: 'git',
-            url: 'https://github.com/coolgk/mongo.git'
-        }
+        'repository': undefined
     }
 }));
 
