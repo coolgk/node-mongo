@@ -1048,3 +1048,7 @@ Data Types:
 ```javascript
 const { GeneratedField, DataType } = require('@coolgk/mongo');
 ```
+
+## Also see [@coolgk/mvc](https://www.npmjs.com/package/@coolgk/mvc)
+
+A simple, lightweight javascript / typescript MxC framework that helps you to create object oriented, modular and testable code.
