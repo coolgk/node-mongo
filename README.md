@@ -1057,9 +1057,9 @@ Report bugs here: [https://github.com/coolgk/node-mongo/issues](https://github.c
 
 ```
 =============================== Coverage summary ===============================
-Statements   : Unknown% ( 0/0 )
-Branches     : Unknown% ( 0/0 )
-Functions    : Unknown% ( 0/0 )
-Lines        : Unknown% ( 0/0 )
+Statements   : 5.5% ( 16/291 )
+Branches     : 1.82% ( 4/220 )
+Functions    : 4.44% ( 2/45 )
+Lines        : 5.54% ( 16/289 )
 ================================================================================
 ```
