@@ -58,12 +58,14 @@ export interface IDocument {
     [field: string]: any;
 }
 
+export interface IProjection {
+    [field: string]: 1 | 0;
+}
+
 // query join definition
 export interface IJoin {
     on: string | string[];
-    projection?: {
-        [field: string]: 1 | 0
-    };
+    projection?: IProjection;
     filters?: IQuery;
     join?: IJoin[];
     data?: Cursor;
