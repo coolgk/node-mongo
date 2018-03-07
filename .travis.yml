@@ -1,10 +1,18 @@
 language: node_js
 node_js:
     - "8"
-services:
-  - mongodb
+# services:
+#   - mongodb
+addons:
+    apt:
+        sources:
+            - mongodb-upstart
+            - mongodb-3.6-xenial
+        packages:
+            - mongodb-org-server
+            - mongodb-org-shell
 branches:
     only:
-    - master
-    - develop
+        - master
+        - develop
 after_success: npm run coverage
