@@ -57,10 +57,10 @@ async function generatePackage ({
     // generate md for jsdoc from all .ts files
     // const jsDocs = await generateJsDocMd(sourceFolder, distFolder, fileHeader, excludedFiles);
     // recreate root README.md with README.BASE.md + jsdoc
-    const testCoverage = await createTestCoverage();
+    // const testCoverage = await createTestCoverage();
     // cp README.md to /package
     // await createReadme(jsDocs, sourceReadme, targetReadme, packageFolder, packageJson);
-    await createReadme(testCoverage, sourceReadme, targetReadme, packageFolder, packageJson);
+    await createReadme('', sourceReadme, targetReadme, packageFolder, packageJson);
     // generate index.ts
     // await generateIndexFile(sourceFolder, excludedFiles);
     // compile ts
