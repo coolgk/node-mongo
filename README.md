@@ -1,5 +1,7 @@
 # @coolgk/mongo
 
+[![Build Status](https://travis-ci.org/coolgk/node-mongo.svg?branch=master)](https://travis-ci.org/coolgk/node-mongo) [![Coverage Status](https://coveralls.io/repos/github/coolgk/node-mongo/badge.svg?branch=master)](https://coveralls.io/github/coolgk/node-mongo?branch=master) [![dependencies Status](https://david-dm.org/coolgk/node-mongo/status.svg)](https://david-dm.org/coolgk/node-mongo) [![Known Vulnerabilities](https://snyk.io/test/github/coolgk/node-mongo/badge.svg)](https://snyk.io/test/github/coolgk/node-mongo)
+
 A javascript / typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements schema based data validation.
 
 `npm install @coolgk/mongo`
@@ -1061,11 +1063,3 @@ A javascript / typescript utility library. Modules: array, string, base64, ampq,
 
 Report bugs here: [https://github.com/coolgk/node-mongo/issues](https://github.com/coolgk/node-mongo/issues)
 
-```
-=============================== Coverage summary ===============================
-Statements   : 96.22% ( 280/291 )
-Branches     : 90.45% ( 199/220 )
-Functions    : 95.56% ( 43/45 )
-Lines        : 96.19% ( 278/289 )
-================================================================================
-```
