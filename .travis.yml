@@ -4,16 +4,28 @@ node_js:
     - "8"
 # services:
 #   - mongodb
-addons:
-    apt:
-        sources:
-            - mongodb-upstart
-            - mongodb-3.6-trusty
-        packages:
-            - mongodb-org-server
-            - mongodb-org-shell
+env:
+    matrix:
+        - MONGODB=3.6.3
+
+matrix:
+    fast_finish: true
+
+install:
+    - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${MONGODB}.tgz
+    - tar xzf mongodb-linux-x86_64-${MONGODB}.tgz
+    - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --version
+
+before_script:
+    - mkdir ${PWD}/mongodb-linux-x86_64-${MONGODB}/data
+    - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/data --logpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/mongodb.log --fork
+
 branches:
     only:
         - master
         - develop
+
 after_success: npm run coverage
+
+after_script:
+    - pkill mongod
