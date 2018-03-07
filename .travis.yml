@@ -1,4 +1,4 @@
-dist: trusty
+# dist: trusty
 language: node_js
 node_js:
     - "8"
@@ -19,6 +19,7 @@ install:
 before_script:
     - mkdir ${PWD}/mongodb-linux-x86_64-${MONGODB}/data
     - ${PWD}/mongodb-linux-x86_64-${MONGODB}/bin/mongod --dbpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/data --logpath ${PWD}/mongodb-linux-x86_64-${MONGODB}/mongodb.log --fork
+    - sleep 5
 
 branches:
     only:
