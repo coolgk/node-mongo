@@ -1,4 +1,4 @@
-dist: precise
+dist: trusty
 language: node_js
 node_js:
     - "8"
@@ -8,7 +8,7 @@ addons:
     apt:
         sources:
             - mongodb-upstart
-            - mongodb-3.6-precise
+            - mongodb-3.6-trusty
         packages:
             - mongodb-org-server
             - mongodb-org-shell
