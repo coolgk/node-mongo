@@ -19,9 +19,6 @@ const codeHeader = `/*!
  * @link ${packageJsonFile.homepage}
  * @license ${packageJsonFile.license}
  * @author ${packageJsonFile.author}
- *
- * Copyright (c) 2017 ${packageJsonFile.author}. All rights reserved.
- * Licensed under the MIT License.
  */
 
 `;
@@ -40,10 +37,7 @@ gulp.task('package', () => generatePackage({
         'devDependencies': undefined,
         'scripts': undefined,
         'pre-commit': undefined,
-        'repository': {
-            type: 'git',
-            url: 'https://github.com/coolgk/node-mvc.git'
-        }
+        'repository': undefined
     }
 }));
 
@@ -63,12 +57,12 @@ async function generatePackage ({
     // generate md for jsdoc from all .ts files
     // const jsDocs = await generateJsDocMd(sourceFolder, distFolder, fileHeader, excludedFiles);
     // recreate root README.md with README.BASE.md + jsdoc
-    const testCoverage = await createTestCoverage();
+    // const testCoverage = await createTestCoverage();
     // cp README.md to /package
     // await createReadme(jsDocs, sourceReadme, targetReadme, packageFolder, packageJson);
-    await createReadme(testCoverage, sourceReadme, targetReadme, packageFolder, packageJson);
+    await createReadme('', sourceReadme, targetReadme, packageFolder, packageJson);
     // generate index.ts
-    await generateIndexFile(sourceFolder, excludedFiles);
+    // await generateIndexFile(sourceFolder, excludedFiles);
     // compile ts
     await compileTs(sourceFolder, distFolder, fileHeader);
     // cp complied .js and d.ts files from dist/ to package/
@@ -165,22 +159,22 @@ function createReadme (jsDoc, sourceReadme, targetReadme, packageFolder, package
     });
 }
 
-function generateIndexFile (sourceFolder, excludedFiles) {
-    return new Promise((resolve) => {
-        const writeStream = fs.createWriteStream(sourceFolder + '/index.ts');
-        fs.readdir(sourceFolder, (error, files) => {
-            files.forEach((file) => {
-                const filename = file.replace('.ts', '');
-                if (!excludedFiles.includes(filename)) {
-                    writeStream.write(`import * as _${filename} from './${filename}';\n`);
-                    writeStream.write(`export const ${filename} = _${filename}; // tslint:disable-line\n`);
-                }
-            });
-            writeStream.end();
-            resolve();
-        });
-    });
-}
+// function generateIndexFile (sourceFolder, excludedFiles) {
+//     return new Promise((resolve) => {
+//         const writeStream = fs.createWriteStream(sourceFolder + '/index.ts');
+//         fs.readdir(sourceFolder, (error, files) => {
+//             files.forEach((file) => {
+//                 const filename = file.replace('.ts', '');
+//                 if (!excludedFiles.includes(filename)) {
+//                     writeStream.write(`import * as _${filename} from './${filename}';\n`);
+//                     writeStream.write(`export const ${filename} = _${filename}; // tslint:disable-line\n`);
+//                 }
+//             });
+//             writeStream.end();
+//             resolve();
+//         });
+//     });
+// }
 
 function copyFilesToPackage (distFolder, packageFolder) {
     return new Promise((resolve, reject) => {
