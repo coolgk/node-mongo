@@ -142,9 +142,9 @@ export interface IUpdateResults {
     raw: {
         [action: string]: any;
     };
-    error?: {
-        [action: string]: any;
-    };
+    // error?: {
+    //     [action: string]: any;
+    // };
 }
 
 export interface IUpdateOption extends FindOneAndReplaceOption {
@@ -337,6 +337,7 @@ export class Mongo {
         // dateModified always triggers a $set action,
         // if this $set runs last, the return value would not be atomic for a $pull or $push only action
         // @todo: if there are errors in $push or $pull, $set will still run for setting the modified date. modified date should not change if errors happen
+        const errors: { [action: string]: any } = {};
         for (const action of ['$set', '$push', '$pull']) {
             if (!queries[action]) {
                 continue;
@@ -355,10 +356,11 @@ export class Mongo {
                 } as any // 19 Feb 2018, types for mongo node driver does not support arrayFilters
                 // 12 Feb 2018, types also not support findOneAndUpdate() to return promise
             ) as any).catch((error: Error) => {
-                if (!results.error) {
-                    results.error = {};
-                }
-                results.error[action] = error;
+                // if (!results.error) {
+                //     results.error = {};
+                // }
+                // results.error[action] = error;
+                errors[action] = error;
             }) || {};
 
             // get the first result
@@ -432,21 +434,24 @@ export class Mongo {
             // }
         }
 
-        if (results.error) {
+        // if (results.error) {
+        if (Object.keys(errors).length) {
             if (options.revertOnError) {
                 // try {
                     const revertResult = await this._collection.findOneAndReplace(
                         { _id: dataBeforeUpdate._id },
                         dataBeforeUpdate
                     ).catch((revertError) => {
-                        (results.error as any).$revert = revertError;
+                        // (results.error as any).$revert = revertError;
+                        errors.$revert = revertError;
                     });
                 // } catch (error) {
                 //     results.error.$revert = error;
                 // }
             }
-            const error = new MongoError('UpdateOne Error: ' + JSON.stringify(results.error));
-            error.data = results;
+            // const error = new MongoError('UpdateOne Error: ' + JSON.stringify(results.error));
+            const error = new MongoError('UpdateOne Error: ' + JSON.stringify(errors));
+            error.data = { ...results, error: errors } ;
             throw error;
         }
 
