@@ -41,9 +41,9 @@ gulp.task('package', () => generatePackage({
     }
 }));
 
-gulp.task('publish', ['package'], () => {
+gulp.task('publish', gulp.series('package', () => {
     return execCommand(`cd package && npm publish --access=public`);
-});
+}));
 
 // gulp.task('cover', addTestCoverage);
 
