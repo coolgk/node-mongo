@@ -291,7 +291,7 @@ describe.only('Mongo Module', function () {
             }
         ];
 
-        MongoClient.connect(process.env.MONGO_URL, async (error, client) => {
+        MongoClient.connect(process.env.MONGO_URL, { useNewUrlParser: true }, async (error, client) => {
             if (error) {
                 return done(error);
             }
