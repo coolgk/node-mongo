@@ -1,76 +1,74 @@
 {
-  "name": "@coolgk/mongo",
-  "version": "1.0.14",
-  "description": "A javascript / typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements schema based data validation",
-  "main": "./mongo.js",
-  "types": "./mongo.d.ts",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/coolgk/node-mongo.git"
-  },
-  "dependencies": {
-    "@coolgk/array": "^2.0.4",
-    "mongodb": "^3.0.10"
-  },
-  "devDependencies": {
-    "@types/mongodb": "^3.0.19",
-    "@types/node": "^9.6.21",
-    "chai": "^4.1.2",
-    "chai-as-promised": "^7.1.1",
-    "chalk": "^2.4.1",
-    "coveralls": "^3.0.1",
-    "del": "^3.0.0",
-    "eslint": "^4.19.1",
-    "eslint-config-google": "^0.9.1",
-    "gulp": "^4.0.2",
-    "gulp-header": "^2.0.9",
-    "gulp-typescript": "^5.0.1",
-    "js-yaml": "^3.13.1",
-    "jsdoc-to-markdown": "^3.0.4",
-    "mocha": "^4.1.0",
-    "nsp": "^3.2.1",
-    "nyc": "^14.1.1",
-    "pre-commit": "^1.2.2",
-    "retire": "^1.6.1",
-    "sinon": "^4.5.0",
-    "snyk": "^1.82.1",
-    "source-map-support": "^0.5.6",
-    "tslint": "^5.10.0",
-    "typescript": "^2.9.1"
-  },
-  "author": "Daniel Gong <daniel.k.gong@gmail.com>",
-  "scripts": {
-    "pretest": "tsc --project tsconfig.dev.json",
-    "test": "nyc mocha test",
-    "test:quick": "export $(cat .env | xargs) && mocha --require source-map-support/register test",
-    "test:precommit": "export $(cat .env | xargs) && tsc --project tsconfig.dev.json && nyc --reporter text-summary mocha --require source-map-support/register test --reporter min",
-    "scan": "nsp check",
-    "tslint": "tslint --exclude src/test.ts src/**/*.ts",
-    "tsc": "tsc --project tsconfig.json",
-    "tsc:dev": "tsc --project tsconfig.debug.json",
-    "tsc:watch": "tsc --project tsconfig.debug.json -w --pretty",
-    "coverage": "nyc report --reporter=text-lcov | coveralls",
-    "package": "gulp package"
-  },
-  "pre-commit": {
-    "silent": false,
-    "run": [
-      "tslint",
-      "test:precommit"
+    "name": "@coolgk/mongo",
+    "version": "1.0.14",
+    "description": "A javascript / typescript MongoDB modelling library which enables joins in collections, simplifies CRUD operations for sub / nested documents and implements schema based data validation",
+    "main": "./mongo.js",
+    "types": "./mongo.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/coolgk/node-mongo.git"
+    },
+    "dependencies": {
+        "@coolgk/array": "^2.0.4",
+        "mongodb": "^3.0.10"
+    },
+    "devDependencies": {
+        "@types/mongodb": "^3.0.19",
+        "@types/node": "^9.6.21",
+        "chai": "^4.1.2",
+        "chai-as-promised": "^7.1.1",
+        "chalk": "^2.4.1",
+        "coveralls": "^3.0.1",
+        "del": "^3.0.0",
+        "eslint": "^4.19.1",
+        "eslint-config-google": "^0.9.1",
+        "gulp": "^4.0.2",
+        "gulp-header": "^2.0.9",
+        "gulp-typescript": "^5.0.1",
+        "js-yaml": "^3.13.1",
+        "jsdoc-to-markdown": "^3.0.4",
+        "mocha": "^6.2.0",
+        "nyc": "^14.1.1",
+        "pre-commit": "^1.2.2",
+        "retire": "^1.6.1",
+        "sinon": "^7.4.1",
+        "snyk": "^1.82.1",
+        "source-map-support": "^0.5.6",
+        "tslint": "^5.18.0",
+        "typescript": "^2.9.1"
+    },
+    "author": "Daniel Gong <daniel.k.gong@gmail.com>",
+    "scripts": {
+        "pretest": "tsc --project tsconfig.dev.json",
+        "test": "nyc mocha test",
+        "test:quick": "export $(cat .env | xargs) && mocha --require source-map-support/register test",
+        "test:precommit": "export $(cat .env | xargs) && tsc --project tsconfig.dev.json && nyc --reporter text-summary mocha --require source-map-support/register test --reporter min",
+        "tslint": "tslint --exclude src/test.ts src/**/*.ts",
+        "tsc": "tsc --project tsconfig.json",
+        "tsc:dev": "tsc --project tsconfig.debug.json",
+        "tsc:watch": "tsc --project tsconfig.debug.json -w --pretty",
+        "coverage": "nyc report --reporter=text-lcov | coveralls",
+        "package": "gulp package"
+    },
+    "pre-commit": {
+        "silent": false,
+        "run": [
+            "tslint",
+            "test:precommit"
+        ]
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/coolgk/node-mongo/issues"
+    },
+    "homepage": "https://coolgk.github.io/mongodb-orm.html",
+    "keywords": [
+        "mongo",
+        "MongoDB",
+        "orm",
+        "odm",
+        "relational",
+        "data validation",
+        "join"
     ]
-  },
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/coolgk/node-mongo/issues"
-  },
-  "homepage": "https://coolgk.github.io/mongodb-orm.html",
-  "keywords": [
-    "mongo",
-    "MongoDB",
-    "orm",
-    "odm",
-    "relational",
-    "data validation",
-    "join"
-  ]
 }
