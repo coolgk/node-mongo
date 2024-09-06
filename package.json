@@ -10,7 +10,7 @@
     },
     "dependencies": {
         "@coolgk/array": "^2.0.4",
-        "mongodb": "^3.0.10"
+        "mongodb": "^3.3.0"
     },
     "devDependencies": {
         "@types/mongodb": "^3.0.19",
